@@ -1,0 +1,14 @@
+// mooncassette 流式示例。
+//
+// 纯计算，可在全部后端编译。
+import {
+  "moonbitlang/core/json",
+  "moonbitlang/x/fs",
+  "weopqrst/mooncassette",
+  "weopqrst/mooncassette/canon",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/cost",
+  "weopqrst/mooncassette/providers",
+}
+
+pkgtype(kind: "executable")

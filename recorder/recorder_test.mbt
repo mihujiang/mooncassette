@@ -492,6 +492,79 @@ test "streamed frames are sanitized before they reach the cassette" {
 }
 
 ///|
+test "replay_stream hands over the recorded frames in order" {
+  // 这条路径的存在意义：回放时也要跑到「逐块消费」那段代码，
+  // 否则它只在真实网络下被执行，而它恰恰最容易出错。
+  let request = request_of("gpt-4o", @json.parse("{\"a\":1}"))
+  let frames : Array[@core.StreamFrame] = [
+    @core.StreamFrame::new("{\"delta\":{\"content\":\"He\"}}"),
+    @core.StreamFrame::new("{\"delta\":{\"content\":\"llo\"}}"),
+    @core.StreamFrame::new("[DONE]"),
+  ]
+  let cassette = @core.Cassette::new("demo", interactions=[
+    @core.Interaction::new(
+      request,
+      @core.Response::ok(@json.parse("{\"content\":\"Hello\"}"), stream=frames),
+    ),
+  ])
+  let session = @recorder.Session::new(cassette)
+  let delivered : Array[String] = []
+  let response = session.replay_stream(request, fn(frame) {
+    delivered.push(frame.data)
+  }) catch {
+    error => return fail(error.to_string())
+  }
+  assert_eq(delivered, [
+    "{\"delta\":{\"content\":\"He\"}}", "{\"delta\":{\"content\":\"llo\"}}", "[DONE]",
+  ])
+  // 聚合结果同时可用，且与帧一一对应。
+  assert_eq(response.body, @json.parse("{\"content\":\"Hello\"}"))
+}
+
+///|
+test "replay_stream leaves a non-streaming response alone" {
+  // 「本来就没有分片」不该被当成「分片丢了」。
+  let request = request_of("gpt-4o", @json.parse("{\"a\":1}"))
+  let cassette = @core.Cassette::new("demo", interactions=[
+    @core.Interaction::new(request, @core.Response::ok(Json::string("plain"))),
+  ])
+  let session = @recorder.Session::new(cassette)
+  let seen : Array[String] = []
+  let _ = session.replay_stream(request, fn(frame) { seen.push(frame.data) }) catch {
+    error => return fail(error.to_string())
+  }
+  assert_eq(seen.length(), 0)
+}
+
+///|
+test "replay_stream replays exactly the frames that were recorded" {
+  // 录制下来的帧与回放出去的帧必须逐帧一致，否则「回放」只是近似。
+  let mock = @recorder.MockTransport::new()
+  let request = request_of("gpt-4o", @json.parse("{\"a\":1}"))
+  let source = "data: {\"i\":1}\n\ndata: {\"i\":2}\n\ndata: [DONE]\n\n"
+  mock.on(
+    request,
+    @core.Response::ok(Json::null(), stream=@stream.parse(source)),
+  )
+  let session = @recorder.Session::new(
+    @core.Cassette::new("demo"),
+    mode=@recorder.Mode::Record,
+    transport=mock,
+  )
+  let recorded : Array[String] = []
+  let _ = session.replay_stream(request, fn(frame) { recorded.push(frame.data) }) catch {
+    error => return fail(error.to_string())
+  }
+  session.set_mode(@recorder.Mode::Playback)
+  let replayed : Array[String] = []
+  let _ = session.replay_stream(request, fn(frame) { replayed.push(frame.data) }) catch {
+    error => return fail(error.to_string())
+  }
+  assert_eq(replayed, recorded)
+  assert_eq(replayed.length(), 3)
+}
+
+///|
 test "unscripted mock responses surface as an explicit 500" {
   let mock = @recorder.MockTransport::new()
   let response = @recorder.MockTransport::call_count(mock) // 仅确认访问器可用

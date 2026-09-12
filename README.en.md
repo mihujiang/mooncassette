@@ -59,6 +59,7 @@ No network and no API key required:
 ```bash
 moon run examples/offline_demo --target js     # record → save → replay → drift detection
 moon run examples/openai_protocol --target js  # real provider payloads → record → offline replay
+moon run examples/streaming_demo --target js   # SSE stream → frames handed to the app → offline frame replay
 moon run cmd/main --target js -- verify examples/demo.cassette.json
 moon run cmd/main --target js -- show   examples/demo.cassette.json
 moon run cmd/main --target js -- diff   examples/demo.cassette.json examples/demo.drifted.cassette.json
@@ -404,6 +405,16 @@ frame looks at `stream`.
 - Streaming and non-streaming are **detected automatically**: `HttpResponse` carries only a status
   and a body, with no `Content-Type`, so the decision is made from the content (the first non-empty
   line being `data:`, `event:` or a comment).
+- **Replay hands frames over too**: `Session::replay_stream(request, sink)` obtains the response and
+  then hands each frame back in the order it arrived. The "consume chunk by chunk" code path that
+  runs in production also runs in the offline replay — and it is exactly the part most likely to be
+  wrong. Non-streaming responses never invoke `sink`: that is "there were no chunks", not "the
+  chunks were lost".
+- **A client that consumes chunks itself can still record**: `decode_openai_stream_frames` /
+  `decode_anthropic_stream_frames` aggregate frames directly, so combined with `Session::record` the
+  result assembled from chunk callbacks can be recorded into a cassette.
+- `examples/streaming_demo` runs the whole thing: frames handed over while recording, handed over
+  again while replaying offline, identical frame by frame — plus a cost summary.
 
 ---
 
@@ -468,7 +479,7 @@ moon check --target js
 moon fmt && moon info
 ```
 
-**All 208 tests pass**, covering twelve packages, each run on both `wasm-gc` and `js`. The point is not
+**All 213 tests pass**, covering twelve packages, each run on both `wasm-gc` and `js`. The point is not
 the line count but that **every invariant above has a matching assertion**:
 
 - FNV-1a is verified against the official vectors (empty string / `"a"` / `"foobar"`);
@@ -511,6 +522,11 @@ the line count but that **every invariant above has a matching assertion**:
 - aggregation: an error frame becomes the body verbatim and is not aggregated further;
 - streaming: frame contents are sanitized before they reach the cassette, so the streaming path
   cannot bypass "anything written to disk is sanitized";
+- streaming replay: `replay_stream` hands the frames over in recording order, the frames delivered
+  while recording and while replaying are identical frame by frame, and a non-streaming response
+  never invokes the sink;
+- streaming: the frame-level entry points agree exactly with the response-level ones — they differ
+  only in who parses the frames;
 - format version: version 1 files still decode; reading version 1 and writing it back is byte
   stable; adding a streamed interaction promotes the written version to 2, so no file ever claims
   to be an old format while carrying new fields;

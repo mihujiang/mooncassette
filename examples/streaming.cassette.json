@@ -1,0 +1,78 @@
+{
+  "format": "mooncassette",
+  "interactions": [
+    {
+      "fingerprint": "fnv1a64:159ccb31cf0c605b",
+      "integrity": "fnv1a64:11cc638dd809113c",
+      "request": {
+        "body": {
+          "messages": [
+            {
+              "content": "你好，请介绍一下自己",
+              "role": "user"
+            }
+          ],
+          "model": "gpt-4o",
+          "stream": true
+        },
+        "model": "gpt-4o",
+        "provider": "openai"
+      },
+      "response": {
+        "body": {
+          "choices": [
+            {
+              "finish_reason": "stop",
+              "index": 0,
+              "message": {
+                "content": "你好！我是月兔助手。",
+                "role": "assistant"
+              }
+            }
+          ],
+          "created": 1677652288,
+          "id": "chatcmpl-stream",
+          "model": "gpt-4o",
+          "object": "chat.completion",
+          "system_fingerprint": "fp_demo",
+          "usage": {
+            "completion_tokens": 5,
+            "prompt_tokens": 9,
+            "total_tokens": 14
+          }
+        },
+        "status": 200,
+        "stream": [
+          {
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"\",\"role\":\"assistant\"},\"finish_reason\":null,\"index\":0}],\"created\":1677652288,\"id\":\"chatcmpl-stream\",\"model\":\"gpt-4o\",\"object\":\"chat.completion.chunk\",\"system_fingerprint\":\"fp_demo\"}"
+          },
+          {
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"你好\"},\"finish_reason\":null,\"index\":0}],\"created\":1677652288,\"id\":\"chatcmpl-stream\",\"model\":\"gpt-4o\",\"object\":\"chat.completion.chunk\"}"
+          },
+          {
+            "data": "{\"choices\":[{\"delta\":{\"content\":\"！我是月兔助手。\"},\"finish_reason\":null,\"index\":0}],\"created\":1677652288,\"id\":\"chatcmpl-stream\",\"model\":\"gpt-4o\",\"object\":\"chat.completion.chunk\"}"
+          },
+          {
+            "data": "{\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\",\"index\":0}],\"created\":1677652288,\"id\":\"chatcmpl-stream\",\"model\":\"gpt-4o\",\"object\":\"chat.completion.chunk\"}"
+          },
+          {
+            "data": "{\"choices\":[],\"created\":1677652288,\"id\":\"chatcmpl-stream\",\"model\":\"gpt-4o\",\"object\":\"chat.completion.chunk\",\"usage\":{\"completion_tokens\":5,\"prompt_tokens\":9,\"total_tokens\":14}}"
+          },
+          {
+            "data": "[DONE]"
+          }
+        ],
+        "usage": {
+          "input_tokens": 9,
+          "output_tokens": 5
+        }
+      }
+    }
+  ],
+  "meta": {
+    "generator": "mooncassette/0.4.0",
+    "name": "streaming-demo",
+    "recorded_at": "2026-09-12T11:00:00Z"
+  },
+  "version": 2
+}

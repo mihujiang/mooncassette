@@ -136,6 +136,10 @@ jobs:
       - name: Run the offline demo
         run: moon run examples/offline_demo --target js
 
+      # 流式：录制时逐帧递给应用、离线时逐帧重放，且两者必须逐帧一致。
+      - name: Run the streaming demo
+        run: moon run examples/streaming_demo --target js
+
       # 协议路径：真实 provider 报文形状 → 录制 → 离线回放。
       - name: Run the protocol demo
         run: moon run examples/openai_protocol --target js

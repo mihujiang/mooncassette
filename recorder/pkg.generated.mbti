@@ -44,6 +44,7 @@ pub fn Session::diagnose(Self, @core.Request, top? : Int) -> @matcher.Diagnosis
 pub fn Session::new(@core.Cassette, mode? : Mode, transport? : &Transport, policy? : @matcher.MatchPolicy, sanitize? : @sanitize.SanitizePolicy) -> Self
 pub fn Session::record(Self, @core.Request, @core.Response) -> @core.Response
 pub fn Session::replay(Self, @core.Request) -> @core.Response raise @core.CassetteError
+pub fn Session::replay_stream(Self, @core.Request, (@core.StreamFrame) -> Unit) -> @core.Response raise @core.CassetteError
 pub fn Session::send(Self, @core.Request) -> @core.Response raise @core.CassetteError
 pub fn Session::set_mode(Self, Mode) -> Unit
 pub fn Session::stats(Self) -> Stats

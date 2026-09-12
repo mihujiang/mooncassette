@@ -52,28 +52,41 @@ priv struct OpenAiStream {
 }
 
 ///|
-/// 解码 OpenAI 流式响应。
+/// 由**已经拿到的帧**聚合出统一响应。
 ///
-/// 输入是**完整**的 SSE 文本（即 `HttpResponse.body`）。之所以能这样做，
-/// 是因为录制阶段已经把所有帧都拿到了；「真正逐块消费网络流」属于调用方的
-/// HTTP 客户端职责，本项目只关心「这段字节流的内容是什么」。
-pub fn decode_openai_stream_response(response : HttpResponse) -> @core.Response {
+/// 与 `decode_openai_stream_response` 的区别只在入口：那个从 HTTP 响应体里解析
+/// 出帧，这个直接收帧。需要在「客户端自己逐块收数据」的场景里复用同一套聚合
+/// 逻辑时用这个 —— 例如异步客户端把分片回调交给业务代码之后，再把这些帧录进
+/// cassette（配合 `@recorder.Session::record`）。
+pub fn decode_openai_stream_frames(
+  frames : Array[@core.StreamFrame],
+  status : Int,
+) -> @core.Response {
   let acc : OpenAiStream = {
     meta: Map([]),
     choices: [],
     usage: None,
     error_body: None,
   }
-  let frames = @stream.parse(response.body)
   for frame in frames {
     absorb_openai(acc, frame)
   }
   {
-    status: response.status,
+    status,
     body: openai_stream_body(acc),
     usage: openai_usage(acc),
     stream: Some(frames),
   }
+}
+
+///|
+/// 解码 OpenAI 流式响应。
+///
+/// 输入是**完整**的 SSE 文本（即 `HttpResponse.body`）。之所以能这样做，是因为
+/// 录制阶段已经把所有帧都拿到了；「真正逐块消费网络流」属于调用方 HTTP 客户端的
+/// 职责，本项目只关心「这段字节流的内容是什么」。
+pub fn decode_openai_stream_response(response : HttpResponse) -> @core.Response {
+  decode_openai_stream_frames(@stream.parse(response.body), response.status)
 }
 
 ///|

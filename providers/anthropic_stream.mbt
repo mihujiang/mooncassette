@@ -39,9 +39,13 @@ priv struct AnthropicStream {
 }
 
 ///|
-/// 解码 Anthropic 流式响应。
-pub fn decode_anthropic_stream_response(
-  response : HttpResponse,
+/// 由**已经拿到的帧**聚合出统一响应。
+///
+/// 与 `decode_anthropic_stream_response` 的区别只在入口，理由同 OpenAI 那一个：
+/// 让「自己逐块收数据」的客户端也能复用同一套聚合逻辑再录制。
+pub fn decode_anthropic_stream_frames(
+  frames : Array[@core.StreamFrame],
+  status : Int,
 ) -> @core.Response {
   let acc : AnthropicStream = {
     message: Map([]),
@@ -52,16 +56,23 @@ pub fn decode_anthropic_stream_response(
     output_tokens: None,
     error_body: None,
   }
-  let frames = @stream.parse(response.body)
   for frame in frames {
     absorb_anthropic(acc, frame)
   }
   {
-    status: response.status,
+    status,
     body: anthropic_stream_body(acc),
     usage: anthropic_stream_usage(acc),
     stream: Some(frames),
   }
+}
+
+///|
+/// 解码 Anthropic 流式响应。
+pub fn decode_anthropic_stream_response(
+  response : HttpResponse,
+) -> @core.Response {
+  decode_anthropic_stream_frames(@stream.parse(response.body), response.status)
 }
 
 ///|

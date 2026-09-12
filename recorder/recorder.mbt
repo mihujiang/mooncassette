@@ -124,6 +124,35 @@ pub fn Session::send(
 }
 
 ///|
+/// 流式调用：先取到响应，再按录制顺序把每一帧交给 `sink`。
+///
+/// 为什么需要它：录制时应用是从自己的 HTTP 客户端**逐块**拿到数据的，回放时
+/// 若只拿到一个聚合结果，那段「逐块渲染 / 逐块回调」的代码路径就永远跑不到，
+/// 而它恰恰是最容易出错的部分。本函数把帧按原顺序递回去，让回放与真实调用在
+/// 调用方看来是同一条路径。
+///
+/// 三种模式都适用：它建立在 `send` 之上，因此 `Record` / `Auto` / `Playback`
+/// 的语义完全一致——先拿到响应（回放命中或真实录制），再重放其中的帧。
+///
+/// 非流式响应**不会**触发 `sink`：那是「本来就没有分片」，不是「分片丢了」。
+/// 需要区分时可以看返回值的 `stream` 是否为 `None`。
+pub fn Session::replay_stream(
+  self : Session,
+  request : @core.Request,
+  sink : (@core.StreamFrame) -> Unit,
+) -> @core.Response raise @core.CassetteError {
+  let response = self.send(request)
+  match response.stream {
+    Some(frames) =>
+      for frame in frames {
+        sink(frame)
+      }
+    None => ()
+  }
+  response
+}
+
+///|
 /// 把外部请求转换为「用于匹配与落盘」的形态。
 ///
 /// 顺序是**先规范化、再脱敏**，与 `send` 中的派生顺序严格一致。

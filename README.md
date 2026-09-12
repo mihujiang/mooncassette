@@ -59,6 +59,7 @@ import {
 ```bash
 moon run examples/offline_demo --target js     # 录制 → 落盘 → 回放 → 漂移检测
 moon run examples/openai_protocol --target js  # 真实 provider 报文 → 录制 → 离线回放
+moon run examples/streaming_demo --target js   # SSE 流式 → 逐帧递给应用 → 离线逐帧回放
 moon run cmd/main --target js -- verify examples/demo.cassette.json
 moon run cmd/main --target js -- show   examples/demo.cassette.json
 moon run cmd/main --target js -- diff   examples/demo.cassette.json examples/demo.drifted.cassette.json
@@ -384,6 +385,14 @@ LLM 应用大量使用流式输出。处理原则是：**帧完整保留，同�
 - **帧也要脱敏**：帧里装的是同一份模型输出，只脱敏聚合体等于在流式路径上留后门。
 - 流式与非流式**自动区分**：`HttpResponse` 只带状态码与响应体、没有 `Content-Type`，
   因此按下议内容判断（首个非空行是 `data:` / `event:` / 注释行）。
+- **回放侧也逐帧递**：`Session::replay_stream(request, sink)` 先拿到响应，再把帧按线上
+  顺序递回去。录制时「逐块渲染」那段代码在离线回放时同样会被跑到，而它恰恰最容易出错。
+  非流式响应不触发 `sink` —— 那是「本来就没有分片」，不是「分片丢了」。
+- **客户端自己逐块收数据也能录**：`decode_openai_stream_frames` /
+  `decode_anthropic_stream_frames` 直接收帧聚合，配合 `Session::record` 即可把分片回调
+  攒出来的结果录进 cassette。
+- 仓库里的 `examples/streaming_demo` 端到端跑一遍：录制时逐帧递出、离线回放时逐帧
+  递出、两者逐帧一致，并顺带给出成本汇总。
 
 ---
 
@@ -447,7 +456,7 @@ moon check --target js
 moon fmt && moon info
 ```
 
-当前 **208 个测试全部通过**，覆盖十二个包，且在 `wasm-gc` 与 `js` 两个目标上各跑一遍。
+当前 **213 个测试全部通过**，覆盖十二个包，且在 `wasm-gc` 与 `js` 两个目标上各跑一遍。
 测试的重点不是行数，而是**每条不变量都有对应断言**，例如：
 
 - FNV-1a 用官方测试向量校验（空串 / `"a"` / `"foobar"`）；
@@ -476,6 +485,8 @@ moon fmt && moon info
 - 流式聚合：`usage` 缺一半时留空，而聚合体里补 0——「没上报」与「上报了 0」可区分；
 - 流式聚合：错误帧原样作为响应体，不再被继续聚合；
 - 流式：帧内容落盘前必须脱敏（否则流式路径会绕开「落盘必脱敏」）；
+- 流式回放：`replay_stream` 把帧按录制顺序递出，且「录制时递出的帧」与「回放时递出的帧」逐帧一致；非流式响应不触发 `sink`；
+- 流式：帧级聚合入口与响应级入口给出完全一致的结果（两者只是「谁来解析帧」不同）；
 - 格式版本：旧版本（version 1）仍可读；「读入旧版本 → 写出旧版本」字节稳定；
   追加流式记录后写出版本自动升到 2，不会写出「自称旧格式、其实含新字段」的文件；
 - 诊断：差异路径按**码点字典序**排序（`String` 自带的比较不是字典序，实测表现为先比长度）；

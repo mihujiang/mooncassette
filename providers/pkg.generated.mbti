@@ -15,9 +15,13 @@ pub fn check_model_consistency(@core.Request) -> Unit raise @core.CassetteError
 
 pub fn decode_anthropic_response(HttpResponse) -> @core.Response
 
+pub fn decode_anthropic_stream_frames(Array[@core.StreamFrame], Int) -> @core.Response
+
 pub fn decode_anthropic_stream_response(HttpResponse) -> @core.Response
 
 pub fn decode_openai_response(HttpResponse) -> @core.Response
+
+pub fn decode_openai_stream_frames(Array[@core.StreamFrame], Int) -> @core.Response
 
 pub fn decode_openai_stream_response(HttpResponse) -> @core.Response
 

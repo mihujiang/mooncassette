@@ -2,11 +2,15 @@
 //
 // 本包只依赖纯计算包：真实网络调用通过 `Transport` 由使用方注入，
 // 因此本包自身可以在全部后端编译与测试。
+//
+// 依赖 `stream` 只是为了测试里能直接构造帧序列（回放侧的逐帧接口
+// 需要用它验证「录制时递出的帧与回放时递出的帧一致」）。
 import {
   "weopqrst/mooncassette/core",
   "weopqrst/mooncassette/fingerprint",
   "weopqrst/mooncassette/matcher",
   "weopqrst/mooncassette/sanitize",
+  "weopqrst/mooncassette/stream",
 }
 
 import {

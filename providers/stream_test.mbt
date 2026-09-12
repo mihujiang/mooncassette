@@ -289,6 +289,50 @@ test "protocol decode routes sse bodies to the streaming path" {
 }
 
 ///|
+test "the frame entry point agrees with the response entry point" {
+  // 两条入口只是「谁来解析帧」不同，聚合结果必须完全一致；
+  // 若不一致，说明「自己逐块收数据的客户端」录下来的东西与自动录制的不是一回事。
+  let body = sse([
+    "{\"id\":\"chatcmpl-1\",\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Hi\"},\"finish_reason\":null}]}",
+    "{\"id\":\"chatcmpl-1\",\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":3,\"completion_tokens\":1,\"total_tokens\":4}}",
+  ])
+  let from_response = decode_openai_stream_response(
+    HttpResponse::new(200, body),
+  )
+  let from_frames = decode_openai_stream_frames(@stream.parse(body), 200)
+  assert_true(same_json(from_response.body, from_frames.body))
+  assert_eq(from_frames.stream.unwrap().length(), 2)
+  match (from_response.usage, from_frames.usage) {
+    (Some(left), Some(right)) => {
+      assert_eq(left.input_tokens, right.input_tokens)
+      assert_eq(left.output_tokens, right.output_tokens)
+    }
+    _ => fail("expected usage from both entry points")
+  }
+}
+
+///|
+test "the anthropic frame entry point agrees with the response entry point" {
+  let body = sse_named([
+    (
+      "message_start", "{\"type\":\"message_start\",\"message\":{\"id\":\"msg_9\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"m\",\"content\":[],\"usage\":{\"input_tokens\":4}}}",
+    ),
+    (
+      "content_block_delta", "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"ok\"}}",
+    ),
+    (
+      "message_delta", "{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":2}}",
+    ),
+  ])
+  let from_response = decode_anthropic_stream_response(
+    HttpResponse::new(200, body),
+  )
+  let from_frames = decode_anthropic_stream_frames(@stream.parse(body), 200)
+  assert_true(same_json(from_response.body, from_frames.body))
+  assert_eq(from_frames.stream.unwrap().length(), 3)
+}
+
+///|
 test "protocol decode keeps non-sse bodies on the ordinary path" {
   let protocol = AnthropicMessages::new("sk-test")
   let response = protocol.decode(

@@ -63,3 +63,7 @@ jobs:
 
       - name: Run the offline demo
         run: moon run examples/offline_demo --target js
+
+      # 协议路径：真实 provider 报文形状 → 录制 → 离线回放。
+      - name: Run the protocol demo
+        run: moon run examples/openai_protocol --target js

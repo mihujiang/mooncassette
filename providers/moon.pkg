@@ -1,0 +1,21 @@
+// mooncassette/providers —— provider 协议编解码（纯计算）。
+//
+// 刻意**不依赖任何 HTTP 客户端**：本包只做两件事
+//   1. 把统一请求编码成 HTTP 请求（方法、URL、鉴权头、体）；
+//   2. 把 HTTP 响应解码成统一响应（含 usage 与错误状态的保留）。
+// 真正的网络发送由使用方实现 `HttpSender`（接 mizchi/x/http、fetch 或
+// 任何客户端都只需几行）。这样带来三个好处：
+//   - 本包仍是纯计算包，可在 wasm / wasm-gc / js / native 全部后端编译；
+//   - 协议映射可以用**真实报文做离线黄金测试**，不需要网络与密钥；
+//   - 使用方不会被本项目绑定某个 HTTP 生态。
+import {
+  "moonbitlang/core/json",
+  "weopqrst/mooncassette/canon",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/recorder",
+}
+
+import {
+  "moonbitlang/core/json",
+  "weopqrst/mooncassette/core",
+} for "test"

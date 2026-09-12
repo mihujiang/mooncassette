@@ -1,0 +1,15 @@
+// 协议路径示例：展示「真实 provider 报文 → 录制 → 离线回放」。
+//
+// 与 offline_demo 的区别：这里不再直接用 MockTransport，而是走
+// `Protocol` + `HttpSender` 这条**贴近真实接入方式**的路径。
+// 唯一被替换掉的就是那个 HttpSender —— 换成真实 HTTP 客户端即可联网。
+import {
+  "moonbitlang/core/json",
+  "moonbitlang/x/fs",
+  "weopqrst/mooncassette",
+  "weopqrst/mooncassette/canon",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/providers",
+}
+
+pkgtype(kind: "executable")

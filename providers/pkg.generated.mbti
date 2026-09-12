@@ -1,0 +1,103 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "weopqrst/mooncassette/providers"
+
+import {
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/recorder",
+}
+
+// Values
+pub let anthropic_protocol_id : String
+
+pub fn as_object(Json) -> Map[String, Json]?
+
+pub fn check_model_consistency(@core.Request) -> Unit raise @core.CassetteError
+
+pub fn decode_anthropic_response(HttpResponse) -> @core.Response
+
+pub fn decode_openai_response(HttpResponse) -> @core.Response
+
+pub let default_anthropic_version : String
+
+pub fn int_field(Map[String, Json], String) -> Int?
+
+pub let openai_protocol_id : String
+
+pub fn parse_body_or_raw(String) -> Json
+
+pub fn usage_of(Map[String, Json], String, String, String) -> @core.Usage?
+
+// Errors
+
+// Types and methods
+pub struct AnthropicMessages {
+  base_url : String
+  api_key : String
+  version : String
+}
+pub fn AnthropicMessages::auth_headers(Self) -> Array[(String, String)]
+pub fn AnthropicMessages::endpoint(Self) -> String
+pub fn AnthropicMessages::new(String, base_url? : String, version? : String) -> Self
+pub impl Protocol for AnthropicMessages
+
+pub struct FunctionSender {
+  f : (HttpRequest) -> HttpResponse raise @core.CassetteError
+}
+pub fn FunctionSender::new((HttpRequest) -> HttpResponse raise @core.CassetteError) -> Self
+pub impl HttpSender for FunctionSender
+
+pub(all) struct HttpRequest {
+  http_method : String
+  url : String
+  headers : Array[(String, String)]
+  body : String
+} derive(Eq)
+pub fn HttpRequest::method_name(Self) -> String
+pub fn HttpRequest::new(String, String, Array[(String, String)], String) -> Self
+pub fn HttpRequest::to_key(Self) -> String
+
+pub(all) struct HttpResponse {
+  status : Int
+  body : String
+} derive(Eq)
+pub fn HttpResponse::new(Int, String) -> Self
+
+pub struct OpenAiChat {
+  base_url : String
+  api_key : String
+}
+pub fn OpenAiChat::auth_headers(Self) -> Array[(String, String)]
+pub fn OpenAiChat::endpoint(Self) -> String
+pub fn OpenAiChat::new(String, base_url? : String) -> Self
+pub impl Protocol for OpenAiChat
+
+pub struct ProviderTransport {
+  protocol : &Protocol
+  sender : &HttpSender
+}
+pub fn ProviderTransport::new(&Protocol, &HttpSender) -> Self
+pub fn ProviderTransport::protocol_name(Self) -> String
+pub impl @recorder.Transport for ProviderTransport
+
+pub struct ScriptedHttpSender {
+  scripted : Map[String, HttpResponse]
+  mut calls : Int
+}
+pub fn ScriptedHttpSender::call_count(Self) -> Int
+pub fn ScriptedHttpSender::new() -> Self
+pub fn ScriptedHttpSender::on(Self, HttpRequest, HttpResponse) -> Unit
+pub impl HttpSender for ScriptedHttpSender
+
+// Type aliases
+
+// Traits
+pub(open) trait HttpSender {
+  fn send(Self, HttpRequest) -> HttpResponse raise @core.CassetteError
+}
+
+pub(open) trait Protocol {
+  fn name(Self) -> String
+  fn encode(Self, @core.Request) -> HttpRequest raise @core.CassetteError
+  fn decode(Self, HttpResponse) -> @core.Response raise @core.CassetteError
+}
+

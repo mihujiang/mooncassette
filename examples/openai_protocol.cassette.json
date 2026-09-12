@@ -1,0 +1,57 @@
+{
+  "format": "mooncassette",
+  "interactions": [
+    {
+      "fingerprint": "fnv1a64:4b8255faf3c66840",
+      "integrity": "fnv1a64:0ed656e89b0a8d34",
+      "request": {
+        "body": {
+          "messages": [
+            {
+              "content": "你好，请介绍一下自己",
+              "role": "user"
+            }
+          ],
+          "model": "gpt-4o",
+          "temperature": 0.7
+        },
+        "model": "gpt-4o",
+        "provider": "openai"
+      },
+      "response": {
+        "body": {
+          "choices": [
+            {
+              "finish_reason": "stop",
+              "index": 0,
+              "message": {
+                "content": "你好！我是月兔助手。",
+                "role": "assistant"
+              }
+            }
+          ],
+          "created": 1677652288,
+          "id": "chatcmpl-demo",
+          "model": "gpt-4o",
+          "object": "chat.completion",
+          "usage": {
+            "completion_tokens": 12,
+            "prompt_tokens": 9,
+            "total_tokens": 21
+          }
+        },
+        "status": 200,
+        "usage": {
+          "input_tokens": 9,
+          "output_tokens": 12
+        }
+      }
+    }
+  ],
+  "meta": {
+    "generator": "mooncassette/0.1.0",
+    "name": "openai-protocol-demo",
+    "recorded_at": "2026-09-12T10:00:00Z"
+  },
+  "version": 1
+}

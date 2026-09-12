@@ -32,7 +32,8 @@ cassette 文件；之后无论在 CI、在同事的电脑上、还是在没有�
 不需要网络，也不需要 API Key：
 
 ```bash
-moon run examples/offline_demo --target js     # 完整走一遍：录制 → 落盘 → 回放 → 漂移检测
+moon run examples/offline_demo --target js     # 录制 → 落盘 → 回放 → 漂移检测
+moon run examples/openai_protocol --target js  # 真实 provider 报文 → 录制 → 离线回放
 moon run cmd/main --target js -- verify examples/demo.cassette.json
 moon run cmd/main --target js -- show   examples/demo.cassette.json
 moon run cmd/main --target js -- diff   examples/demo.cassette.json examples/demo.drifted.cassette.json
@@ -115,6 +116,60 @@ test "chat returns the recorded answer" {
 ```
 
 这个测试不需要网络、不需要密钥，且永远稳定。
+
+---
+
+## 接入真实 provider
+
+回放与漂移检测都建立在「统一请求/响应」之上，而真实世界是各家自己的报文格式。
+`providers` 包负责这层翻译，且**不依赖任何 HTTP 客户端**（因此仍在全部后端可编译，
+并且可以用真实报文做离线测试）。
+
+| 协议 | 路径 | 鉴权头 | usage 字段名 |
+|---|---|---|---|
+| `OpenAiChat` | `/chat/completions` | `Authorization: Bearer …` | `prompt_tokens` / `completion_tokens` |
+| `AnthropicMessages` | `/messages` | `x-api-key` + `anthropic-version` | `input_tokens` / `output_tokens` |
+
+`OpenAiChat` 的 `base_url` 可以指向 DeepSeek、Moonshot、vLLM、Ollama 等兼容端点，
+因此一个适配器就能覆盖相当广的范围。
+
+它替你处理掉这些容易出错的地方：
+
+- 各家的路径与鉴权头差异；
+- usage 字段命名差异（OpenAI 是 `prompt_tokens`，Anthropic 是 `input_tokens`）；
+- **错误响应也要能录下来**——否则「限流时怎么办」没法写回归测试；
+- 网关返回 HTML 错误页时不会把响应体丢掉，而是包成 `{"raw_body": "…"}`；
+- 报文体中若显式写了 `model`，必须与 `Request.model` 一致，否则直接报错
+  （这类静默不一致会同时污染指纹与计费口径，很难排查）。
+
+### 你需要实现的只有「发出去」这一步
+
+```moonbit
+let sender = @providers.FunctionSender::new(fn(request) {
+  MyClient::call(request)   // (HttpRequest) -> HttpResponse raise CassetteError
+})
+let transport = @providers.ProviderTransport::new(
+  @providers.OpenAiChat::new(api_key, base_url="https://api.deepseek.com/v1"),
+  sender,
+)
+let session = @mooncassette.auto_session(@core.Cassette::new("chat"), transport)
+```
+
+`api_key` 只会进入 HTTP 请求头，**永远不会**写进 cassette —— cassette 记录的是
+统一请求/响应，而不是抓包结果。
+
+### 关于异步 HTTP 客户端（重要）
+
+`mizchi/x/http` 这类客户端是 **async** 的（`async fn post`），而 `HttpSender` 是同步的。
+MoonBit 没有「从同步上下文启动异步任务」的入口（`moonbitlang/async` 只提供 `spawn`，
+没有 `block_on` 式的桥接），因此**异步客户端无法直接实现 `HttpSender`**。
+
+两条可行路径：
+
+- **客户端是同步的** → 用上面的 `FunctionSender`，几行搞定；
+- **客户端是异步的** → 在 async 上下文里分三步手工完成：
+  `protocol.encode(request)`（同步构建）→ 异步发送 → `protocol.decode(response)`（同步解析）。
+  让录制/回放引擎本身支持 async 是需要单独设计的改动，见路线图 V0.3。
 
 ---
 
@@ -271,7 +326,7 @@ moon check --target js
 moon fmt && moon info
 ```
 
-当前 **114 个测试全部通过**，覆盖九个包，且在 `wasm-gc` 与 `js` 两个目标上各跑一遍。
+当前 **136 个测试全部通过**，覆盖十个包，且在 `wasm-gc` 与 `js` 两个目标上各跑一遍。
 测试的重点不是行数，而是**每条不变量都有对应断言**，例如：
 
 - FNV-1a 用官方测试向量校验（空串 / `"a"` / `"foobar"`）；
@@ -283,7 +338,9 @@ moon fmt && moon info
 - 带密钥的请求「录制后立刻回放」必须命中（回归测试）；
 - 回放模式下 `Transport` 调用次数必须为 0；
 - 漂移检测：键序/易变字段变化**不算**漂移，而响应变化**必须**算；
-- 漂移检测：重复的同一请求按出现顺序两两配对，报告顺序固定为 Removed → Changed → Added。
+- 漂移检测：重复的同一请求按出现顺序两两配对，报告顺序固定为 Removed → Changed → Added；
+- 协议解码用**真实 API 形状的报文**（含 429 错误体、HTML 网关错误页、非整数 token 数）验证；
+- `mizchi/x/http` 式的异步客户端**不能**实现同步的 `HttpSender`（这是本项目的已知边界，已在文档中标明）。
 
 ---
 
@@ -298,6 +355,7 @@ moon fmt && moon info
 | `sanitize` | 脱敏策略与递归脱敏 | 否 |
 | `codec` | cassette 编解码与完整性校验 | 否 |
 | `drift` | 两次录制之间的漂移检测 | 否 |
+| `providers` | OpenAI / Anthropic 协议编解码、HTTP 执行器抽象 | 否 |
 | `recorder` | `Transport` 抽象、会话引擎、`MockTransport` | 否 |
 | `mooncassette` | 门面：最短上手路径 | 否 |
 
@@ -311,11 +369,14 @@ moon fmt && moon info
 
 - **V0.1（已完成，已发布）** —— 数据模型、规范文本、指纹与完整性摘要、匹配、
   脱敏、编解码、会话引擎、CLI、离线示例与文档。
-- **V0.2（当前）** —— **漂移检测**（`drift` 包 + `mooncassette diff`）；
+- **V0.2（已发布）** —— **漂移检测**（`drift` 包 + `mooncassette diff`）；
   示例演示「模型换版本后行为漂移」的完整闭环。
-- **V0.3** —— 耗时与 token 用量的独立元数据层（不破坏确定性）；
+- **V0.3（进行中，尚未发布）** —— **provider 协议适配器**（`providers` 包：
+  OpenAI / Anthropic 的请求编码、响应解码、usage 提取、错误保留），
+  以及协议路径的离线示例。**待补**：让引擎支持 async 发送，
+  以便直接接入 `mizchi/x/http` 这类异步客户端。
+- **V0.4** —— 耗时与 token 用量的独立元数据层（不破坏确定性）；
   cassette 的裁剪与合并命令。
-- **V0.4** —— 面向主流 provider 的 Transport 适配器与示例工程。
 - **V1.0** —— 格式冻结、迁移指南、多后端 CI 矩阵。
 
 ---

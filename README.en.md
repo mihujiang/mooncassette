@@ -194,18 +194,34 @@ recorded is the unified request/response, not a network capture.
 
 ### A note on async HTTP clients
 
-Clients such as `mizchi/x/http` are **async** (`async fn post`), while `HttpSender` is synchronous.
-MoonBit has no entry point for starting an async task from a synchronous context
-(`moonbitlang/async` offers `spawn` but no `block_on`-style bridge), so **an async client cannot
-implement `HttpSender` directly**.
+Clients such as `mizchi/x/http` are **async** (`async fn post`), while both `Transport::send` and
+`HttpSender::send` are synchronous. MoonBit has no entry point for starting an async task from a
+synchronous context (`moonbitlang/async` offers `spawn` but no `block_on`-style bridge), so **an
+async client cannot implement those traits**.
 
-Two workable paths:
+Adapting one is still easy: only the "put the request on the wire" step is asynchronous, and
+everything else reuses the synchronous API.
 
-- **Synchronous client** → use `FunctionSender` above, a few lines.
-- **Async client** → do it in three steps inside an async context:
-  `protocol.encode(request)` (synchronous) → send asynchronously → `protocol.decode(response)`
-  (synchronous). Protocol encoding and decoding have nothing to do with sync vs. async, so both
-  steps can be reused from any context.
+```moonbit
+///|
+// Replay on hit; on a miss, send once and record the answer.
+let response = match session.try_replay(request) {
+  Some(recorded) => recorded
+  None => {
+    let http_request = protocol.encode(request)        // synchronous
+    let http_response = my_client.send(http_request)   // <- the only step that needs await
+    session.record(request, protocol.decode(http_response))  // synchronous
+  }
+}
+```
+
+`Session::record` runs the request and the response through exactly the same derivation chain as
+automatic recording (normalize + sanitize), so a manually recorded entry is shaped identically to
+an automatically recorded one and the two can replay each other. In other words: this path bypasses
+`Transport`, but it does not bypass any invariant.
+
+Protocol encoding and decoding have nothing to do with sync vs. async, so both steps can be reused
+from any context. If your client is synchronous, `FunctionSender` above is less work.
 
 ---
 
@@ -221,7 +237,7 @@ and can be reviewed as a diff in code review, which is exactly why canonical key
   "format": "mooncassette",
   "version": 1,
   "meta": {
-    "generator": "mooncassette/0.1.0",
+    "generator": "mooncassette/0.3.0",
     "name": "chat-demo",
     "recorded_at": "2026-09-12T08:00:00Z"
   },
@@ -274,9 +290,38 @@ list lives in `@core.default_drop_keys` and can be customized.
 
 Lookup uses **ring scanning**: search forward from the current cursor, then wrap around to the
 beginning. That handles both "the same request was recorded several times, replay them in order"
-and "more calls than recordings, reuse the earliest one" instead of failing outright. Note that
-`Sequential` deliberately does **not** wrap: running past the end means the recording is exhausted
-and must be reported, otherwise insufficient coverage gets silently hidden.
+and "more calls than recordings, reuse the earliest one" instead of failing outright.
+
+### What a miss tells you
+
+A bare fingerprint is nearly useless: you cannot tell whether to record more, fix the request, or
+change the matching policy. So the `NoMatch` message carries the conclusion with it:
+
+```text
+mooncassette: no recorded interaction matches request fnv1a64:2b1e... (the cassette has 2
+interaction(s); closest is #0 (provider=openai model=gpt-4o), differing at $.body.messages[0].content)
+```
+
+Three deliberate decisions:
+
+- differences are reported as **paths only**, never as field values: diagnostics end up in test
+  output and logs, and the request handed in may not have been sanitized;
+- paths are **sorted**, and candidates are ranked by distance with a **stable** sort, so a report
+  can be asserted on and compared verbatim;
+- **"the recording ran out" and "the request does not match" are reported separately.** In
+  sequential mode a cursor past the end raises `Exhausted`, not `NoMatch` — the first fix is to
+  record more, the second is to change the request or the policy, and conflating them sends you
+  looking in the wrong place.
+
+When you want to format the report yourself, call `Session::diagnose`, which does not raise:
+
+```moonbit
+///|
+let diagnosis = session.diagnose(request)
+for line in diagnosis.lines() {
+  println(line)
+}
+```
 
 ### Sanitization
 
@@ -369,7 +414,7 @@ moon check --target js
 moon fmt && moon info
 ```
 
-**All 136 tests pass**, covering ten packages, each run on both `wasm-gc` and `js`. The point is not
+**All 161 tests pass**, covering ten packages, each run on both `wasm-gc` and `js`. The point is not
 the line count but that **every invariant above has a matching assertion**:
 
 - FNV-1a is verified against the official vectors (empty string / `"a"` / `"foobar"`);
@@ -385,7 +430,19 @@ the line count but that **every invariant above has a matching assertion**:
 - drift detection: duplicates of the same request are paired up in order, and the report order is
   fixed as Removed → Changed → Added;
 - protocol decoding is exercised with **real-API-shaped payloads** (429 error bodies, HTML gateway
-  error pages, non-integer token counts).
+  error pages, non-integer token counts);
+- diagnostics: differing paths are sorted lexicographically (`Map` iteration order is not stable,
+  so an unsorted report could not be asserted on);
+- diagnostics: recording order is preserved when distances tie (stable sort);
+- diagnostics: `$.model` and `$.body.x` are pinpointed separately, and "only in the recording",
+  "only in the request" and array length differences are all reported;
+- sequential exhaustion raises `Exhausted` while an empty cassette raises `NoMatch` — the two are
+  never conflated;
+- manual recording (`Session::record`) produces the same shape as automatic recording, and a
+  freshly recorded request must replay immediately;
+- manual recording never touches the `Transport` (the precondition for async adoption);
+- manual recording returns the sanitized response, identical to what replay returns — otherwise the
+  first run and later runs would observe different values.
 
 ---
 
@@ -416,6 +473,7 @@ their own IO (the examples and CLI in this repository use `moonbitlang/x`, which
 |---|---|
 | `0.1.0` | Data model and canonical JSON text, cross-target stable fingerprints, four matching strategies, sanitizing, cassette codec with dual-digest integrity checking, session engine, `verify`/`show` CLI, offline examples |
 | `0.2.0` | Drift detection (`drift` package plus `mooncassette diff`); examples demonstrating the full loop from "model version changed" to a readable drift report |
+| `0.3.0` | Provider adapters and miss diagnostics: `providers` (OpenAI / Anthropic), the `Session::record` manual path for async clients, `Session::diagnose` and a readable no-match message; fixes sequential exhaustion being reported as `NoMatch`, and `generator_id` having drifted from the module version |
 
 ---
 

@@ -22,6 +22,29 @@ jobs:
           moon version --all
           moon update
 
+      # 版本一致性：`core/types.mbt` 里的 `generator_id` 会被写进每一个 cassette，
+      # 一旦它与 `moon.mod` 的 `version` 脱钩，cassette 就会谎报产出版本。
+      #
+      # MoonBit 无法在编译期读取模块元信息，所以只能在这里比对。这条校验防的是
+      # 「发版时改了 moon.mod、忘了改常量」——那种漂移只有翻 cassette 才会发现。
+      - name: Version consistency
+        run: |
+          # moon.mod 里的 version = "0.3.0" → 取第二个双引号字段。
+          module_version=$(grep -m1 '^version = ' moon.mod | cut -d'"' -f2)
+          # core/types.mbt 里的 generator_id = "mooncassette/0.3.0" → 取字段后去掉包名前缀。
+          generator_version=$(grep -m1 'generator_id' core/types.mbt | cut -d'"' -f2 | sed 's|^mooncassette/||')
+          echo "moon.mod version     : [$module_version]"
+          echo "generator_id version : [$generator_version]"
+          if [ -z "$module_version" ] || [ -z "$generator_version" ]; then
+            echo "::error::could not extract a version from moon.mod or core/types.mbt"
+            exit 1
+          fi
+          if [ "$module_version" != "$generator_version" ]; then
+            echo "::error::generator_id in core/types.mbt ($generator_version) must match the version in moon.mod ($module_version)"
+            exit 1
+          fi
+          echo "versions agree"
+
       - name: Type check (wasm-gc)
         run: moon check --target wasm-gc
 

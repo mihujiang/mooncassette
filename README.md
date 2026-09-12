@@ -190,16 +190,32 @@ let session = @mooncassette.auto_session(@core.Cassette::new("chat"), transport)
 
 ### 关于异步 HTTP 客户端（重要）
 
-`mizchi/x/http` 这类客户端是 **async** 的（`async fn post`），而 `HttpSender` 是同步的。
-MoonBit 没有「从同步上下文启动异步任务」的入口（`moonbitlang/async` 只提供 `spawn`，
-没有 `block_on` 式的桥接），因此**异步客户端无法直接实现 `HttpSender`**。
+`mizchi/x/http` 这类客户端是 **async** 的（`async fn post`），而 `Transport::send` 与
+`HttpSender::send` 都是同步的。MoonBit 没有「从同步上下文启动异步任务」的入口
+（`moonbitlang/async` 只提供 `spawn`，没有 `block_on` 式的桥接），因此**异步客户端
+无法实现这两个 trait**。
 
-两条可行路径：
+但接入并不麻烦：整条链路里只有「把报文发出去」这一步是异步的，其余全部复用同步 API。
 
-- **客户端是同步的** → 用上面的 `FunctionSender`，几行搞定；
-- **客户端是异步的** → 在 async 上下文里分三步手工完成：
-  `protocol.encode(request)`（同步构建）→ 异步发送 → `protocol.decode(response)`（同步解析）。
-  协议编解码本身与同步/异步无关，因此这两步可以在任何上下文中复用。
+```moonbit nocheck
+///|
+// 命中就回放，未命中就发一次并录下来。
+let response = match session.try_replay(request) {
+  Some(recorded) => recorded
+  None => {
+    let http_request = protocol.encode(request)        // 同步
+    let http_response = my_client.send(http_request)   // ← 只有这一步需要 await
+    session.record(request, protocol.decode(http_response))  // 同步
+  }
+}
+```
+
+`Session::record` 会按与自动录制**完全相同**的派生链处理请求与响应（规范化 + 脱敏），
+因此手工录下的记录与自动录下的记录在 cassette 里形态一致，可以互相回放。
+换句话说：这条路径绕开了 `Transport`，但没有绕开任何不变量。
+
+协议编解码本身与同步/异步无关，所以 `encode` / `decode` 两步可以在任何上下文中复用。
+若客户端是同步的，则用上面的 `FunctionSender` 更省事。
 
 ---
 
@@ -215,7 +231,7 @@ MoonBit 没有「从同步上下文启动异步任务」的入口（`moonbitlang
   "format": "mooncassette",
   "version": 1,
   "meta": {
-    "generator": "mooncassette/0.1.0",
+    "generator": "mooncassette/0.3.0",
     "name": "chat-demo",
     "recorded_at": "2026-09-12T08:00:00Z"
   },
@@ -268,8 +284,36 @@ MoonBit 没有「从同步上下文启动异步任务」的入口（`moonbitlang
 
 查找采用**环形扫描**：从当前游标向后找，找不到再从头回卷。这样既能正确处理
 「同一请求被录多次、按次序依次回放」，又能在实际调用次数多于录制次数时复用
-最早的一条，而不是直接失败。注意 `Sequential` **不做**回卷：游标越界即代表
-录制已耗尽，必须如实报告，否则「录制覆盖不足」会被悄悄掩盖。
+最早的一条，而不是直接失败。
+
+### 未命中时能看到什么
+
+只报一个指纹几乎没有可操作性——用户无法判断该去补录制、改请求，还是换匹配策略。
+因此 `NoMatch` 的消息里直接带上诊断结论：
+
+```text
+mooncassette: no recorded interaction matches request fnv1a64:2b1e... (the cassette has 2
+interaction(s); closest is #0 (provider=openai model=gpt-4o), differing at $.body.messages[0].content)
+```
+
+三点刻意的设计：
+
+- 差异只报**路径**，不报字段值：诊断信息常被写进测试输出或日志，而传进去的请求
+  未必经过脱敏；
+- 路径做**排序**，候选按「差异最少」**稳定**排序，因此报告可以被断言、可以逐字比较；
+- **「录制条数不够」与「请求对不上」分开报。** 顺序模式下游标越界抛 `Exhausted`
+  而不是 `NoMatch`——前者的修法是补录制，后者是改请求或换策略，混在一起会把排查
+  引向错误的方向。
+
+需要自行格式化时可以调用不抛错的 `Session::diagnose`：
+
+```moonbit nocheck
+///|
+let diagnosis = session.diagnose(request)
+for line in diagnosis.lines() {
+  println(line)
+}
+```
 
 ### 脱敏
 
@@ -356,7 +400,7 @@ moon check --target js
 moon fmt && moon info
 ```
 
-当前 **136 个测试全部通过**，覆盖十个包，且在 `wasm-gc` 与 `js` 两个目标上各跑一遍。
+当前 **161 个测试全部通过**，覆盖十个包，且在 `wasm-gc` 与 `js` 两个目标上各跑一遍。
 测试的重点不是行数，而是**每条不变量都有对应断言**，例如：
 
 - FNV-1a 用官方测试向量校验（空串 / `"a"` / `"foobar"`）；
@@ -369,7 +413,14 @@ moon fmt && moon info
 - 回放模式下 `Transport` 调用次数必须为 0；
 - 漂移检测：键序/易变字段变化**不算**漂移，而响应变化**必须**算；
 - 漂移检测：重复的同一请求按出现顺序两两配对，报告顺序固定为 Removed → Changed → Added；
-- 协议解码用**真实 API 形状的报文**（含 429 错误体、HTML 网关错误页、非整数 token 数）验证。
+- 协议解码用**真实 API 形状的报文**（含 429 错误体、HTML 网关错误页、非整数 token 数）验证；
+- 诊断：差异路径按字典序排序（`Map` 迭代顺序不保证稳定，不排序就无法断言）；
+- 诊断：差异数量相同时保持录制顺序（稳定排序）；
+- 诊断：`$.model` 与 `$.body.x` 能分别定位，「只在记录里」「只在请求里」与数组长度差都会被报出；
+- 顺序模式耗尽抛 `Exhausted`，空 cassette 报 `NoMatch`——两者不可混；
+- 手动录入（`Session::record`）与自动录制产出同一形态，且「录完立刻回放」必须命中；
+- 手动录入绝不触碰 `Transport`（这是异步接入的前提）；
+- 手动录入返回的是脱敏后的响应，与回放返回的内容一致（否则首次运行与后续运行会看到不同的值）。
 
 ---
 
@@ -400,6 +451,7 @@ moon fmt && moon info
 |---|---|
 | `0.1.0` | 数据模型与规范 JSON 文本、跨目标稳定指纹、四种匹配策略、脱敏、cassette 编解码与双摘要完整性校验、会话引擎、`verify`/`show` CLI、离线示例 |
 | `0.2.0` | 漂移检测（`drift` 包 + `mooncassette diff`）；示例演示「模型换版本后行为漂移」的完整闭环 |
+| `0.3.0` | 协议适配与未命中诊断：`providers`（OpenAI / Anthropic）、`Session::record` 手动录入路径（异步客户端的接入方式）、`Session::diagnose` 与可读的未命中消息；修复顺序模式耗尽被误报为 `NoMatch`、`generator_id` 与模块版本脱钩 |
 
 ---
 

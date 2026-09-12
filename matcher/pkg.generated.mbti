@@ -6,17 +6,38 @@ import {
 }
 
 // Values
+pub fn diagnose(@core.Request, ArrayView[@core.Interaction], MatchPolicy, Int, top? : Int) -> Diagnosis
+
 pub fn find_match(@core.Request, ArrayView[@core.Interaction], MatchPolicy, Int) -> MatchResult? raise @core.CassetteError
+
+pub fn is_exhausted(MatchPolicy, Int, Int) -> Bool
 
 // Errors
 
 // Types and methods
+pub(all) struct Candidate {
+  index : Int
+  provider : String
+  model : String
+  differing_paths : Array[String]
+} derive(Eq)
+
+pub(all) struct Diagnosis {
+  policy : MatchPolicy
+  cursor : Int
+  total : Int
+  candidates : Array[Candidate]
+} derive(Eq)
+pub fn Diagnosis::hint(Self) -> String
+pub fn Diagnosis::lines(Self) -> Array[String]
+
 pub(all) enum MatchPolicy {
   Exact
   FingerprintOnly
   Subset(Array[String])
   Sequential
 } derive(Eq)
+pub fn MatchPolicy::name(Self) -> String
 
 pub(all) struct MatchResult {
   index : Int

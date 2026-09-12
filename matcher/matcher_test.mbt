@@ -240,3 +240,33 @@ test "Sequential returns None once recordings are exhausted" {
   }
   assert_true(result is None)
 }
+
+///|
+test "is_exhausted applies to sequential playback only" {
+  // 顺序模式按位置消费，游标越界即耗尽。
+  assert_true(@matcher.is_exhausted(@matcher.MatchPolicy::Sequential, 2, 2))
+  assert_true(@matcher.is_exhausted(@matcher.MatchPolicy::Sequential, 5, 2))
+  // 游标仍在范围内：还没耗尽。
+  assert_false(@matcher.is_exhausted(@matcher.MatchPolicy::Sequential, 1, 2))
+  // 空 cassette 不算耗尽，那属于「一条都没录」。
+  assert_false(@matcher.is_exhausted(@matcher.MatchPolicy::Sequential, 0, 0))
+}
+
+///|
+test "ring policies can never be exhausted" {
+  // 环形模式找不到就回卷，因此「没找到」一定是没有对应记录，
+  // 不能被误判成「录制条数不够」。
+  assert_false(@matcher.is_exhausted(@matcher.MatchPolicy::Exact, 9, 2))
+  assert_false(
+    @matcher.is_exhausted(@matcher.MatchPolicy::FingerprintOnly, 9, 2),
+  )
+  assert_false(@matcher.is_exhausted(@matcher.MatchPolicy::Subset(["a"]), 9, 2))
+}
+
+///|
+test "policy names are stable identifiers" {
+  assert_eq(@matcher.MatchPolicy::Exact.name(), "Exact")
+  assert_eq(@matcher.MatchPolicy::FingerprintOnly.name(), "FingerprintOnly")
+  assert_eq(@matcher.MatchPolicy::Subset(["a"]).name(), "Subset")
+  assert_eq(@matcher.MatchPolicy::Sequential.name(), "Sequential")
+}

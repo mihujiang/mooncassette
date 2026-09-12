@@ -40,7 +40,9 @@ pub struct Session {
 }
 pub fn Session::cassette(Self) -> @core.Cassette
 pub fn Session::cursor(Self) -> Int
+pub fn Session::diagnose(Self, @core.Request, top? : Int) -> @matcher.Diagnosis
 pub fn Session::new(@core.Cassette, mode? : Mode, transport? : &Transport, policy? : @matcher.MatchPolicy, sanitize? : @sanitize.SanitizePolicy) -> Self
+pub fn Session::record(Self, @core.Request, @core.Response) -> @core.Response
 pub fn Session::replay(Self, @core.Request) -> @core.Response raise @core.CassetteError
 pub fn Session::send(Self, @core.Request) -> @core.Response raise @core.CassetteError
 pub fn Session::set_mode(Self, Mode) -> Unit

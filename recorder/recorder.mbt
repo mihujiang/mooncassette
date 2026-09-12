@@ -181,6 +181,33 @@ pub fn Session::replay(
 }
 
 ///|
+/// 诊断「为什么没命中」，不抛错。
+///
+/// `replay` 失败时抛出的 `NoMatch` 消息里已经包含同样的结论；本函数提供给
+/// 需要自行格式化输出的场景，例如 CLI、自定义断言，或「先看清楚再决定是
+/// 补录制还是改请求」的调试流程。
+///
+/// 调用方传业务原样的请求即可：规范化与脱敏由本函数统一处理，与匹配路径
+/// 保持一致。
+pub fn Session::diagnose(
+  self : Session,
+  request : @core.Request,
+  top? : Int,
+) -> @matcher.Diagnosis {
+  let limit = match top {
+    Some(value) => value
+    None => 3
+  }
+  @matcher.diagnose(
+    self.prepare(request),
+    self.cassette.interactions[:],
+    self.policy,
+    self.cursor,
+    top=limit,
+  )
+}
+
+///|
 /// 在**已准备好**的请求上强制回放。未命中时报 `NoMatch`。
 fn Session::replay_prepared(
   self : Session,
@@ -188,9 +215,40 @@ fn Session::replay_prepared(
 ) -> @core.Response raise @core.CassetteError {
   match self.try_match(request) {
     Some(response) => response
-    None =>
-      raise @core.CassetteError::NoMatch(@fingerprint.fingerprint(request))
+    None => {
+      let total = self.cassette.length()
+      // 先判耗尽：顺序模式下「游标越界」与「没有对应记录」是两回事，
+      // 前者的修法是补录制，后者是改请求或换匹配策略。报错了种类，
+      // 用户就会朝错误的方向排查。
+      if @matcher.is_exhausted(self.policy, self.cursor, total) {
+        raise @core.CassetteError::Exhausted(
+          "sequential playback consumed all " +
+          total.to_string() +
+          " recording(s); the test asked for one call more than was recorded",
+        )
+      }
+      raise @core.CassetteError::NoMatch(self.miss_message(request))
+    }
   }
+}
+
+///|
+/// 拼出未命中时的错误详情：请求指纹 + 一句可操作的原因。
+///
+/// 只报指纹是不够的——用户拿着一个哈希无法判断该去补录制、改请求，还是
+/// 换匹配策略。这里把诊断结论直接放进错误消息，让 `moon test` 的失败输出
+/// 本身就能定位问题。
+///
+/// 传入的 `request` 必须已经规范化（必要时也已脱敏）：本函数内部直接调用
+/// `@matcher.diagnose`，不再重复 `prepare`。
+fn Session::miss_message(self : Session, request : @core.Request) -> String {
+  let diagnosis = @matcher.diagnose(
+    request,
+    self.cassette.interactions[:],
+    self.policy,
+    self.cursor,
+  )
+  @fingerprint.fingerprint(request) + " (" + diagnosis.hint() + ")"
 }
 
 ///|
@@ -213,9 +271,60 @@ fn Session::capture(
   }
   let response = transport.send(live)
   let safe_response = @sanitize.sanitize_response(response, self.sanitize)
-  self.cassette.push(@core.Interaction::new(stored, safe_response))
+  self.store(stored, safe_response)
+  safe_response
+}
+
+///|
+/// 把一条已准备好的记录并入 cassette，并推进游标与计数。
+///
+/// 自动录制（`capture`）与手动录制（`record`）共用本函数，这样两条路径在
+/// 「游标推进到哪、计数怎么加」上不会各自演化出分歧。
+fn Session::store(
+  self : Session,
+  stored : @core.Request,
+  response : @core.Response,
+) -> Unit {
+  self.cassette.push(@core.Interaction::new(stored, response))
   self.cursor = self.cassette.length()
   self.recorded = self.recorded + 1
+}
+
+///|
+/// 手动写入一条录制：把「在别处拿到的响应」并入 cassette。
+///
+/// 主要用途是**异步 HTTP 客户端**。`Transport::send` 是同步的，而
+/// `mizchi/x/http` 这类客户端只能在 async 上下文里调用，因此无法实现
+/// `Transport`；此时在 async 上下文里手工走一遍即可：
+///
+/// ```text
+/// match session.try_replay(request) {
+///   Some(response) => response
+///   None => {
+///     let response = await my_client.send(request)   // 只有这一步是异步的
+///     session.record(request, response)
+///   }
+/// }
+/// ```
+///
+/// 请求与响应都会先经过与 `send` 完全相同的派生链（规范化 + 脱敏），因此
+/// 手工录下的记录与自动录下的记录在 cassette 里形态一致，可以互相回放。
+/// 换句话说，本函数绕开了 `Transport`，但没有绕开任何不变量。
+///
+/// 返回值是**已脱敏**的响应，与 `send` 在录制模式下的返回保持一致。保持一致
+/// 的原因是确定性：回放返回的必然是 cassette 里存的那一份，若录制时返回未
+/// 脱敏的原文，同一段代码在首次运行与后续运行就会看到不同的值。
+///
+/// 本函数不接触任何外部资源，因此在 `Playback` 模式下调用它也不会破坏
+/// 「回放不发起真实调用」这一保证；但它确实会修改 cassette。
+pub fn Session::record(
+  self : Session,
+  request : @core.Request,
+  response : @core.Response,
+) -> @core.Response {
+  let stored = self.prepare(request)
+  let safe_response = @sanitize.sanitize_response(response, self.sanitize)
+  self.store(stored, safe_response)
   safe_response
 }
 

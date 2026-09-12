@@ -14,7 +14,11 @@ pub let cassette_format_version : Int = 1
 
 ///|
 /// 生成器标识。写入每个 cassette，便于追溯产出来源与排查兼容性问题。
-pub let generator_id : String = "mooncassette/0.1.0"
+///
+/// 必须与 `moon.mod` 里的 `version` 保持一致：CI 会比对这两处，不一致
+/// 直接失败。之所以要靠校验而不是共享常量，是因为 MoonBit 无法在编译期
+/// 读取模块元信息，而这个标识一旦漂移，cassette 就会谎报产出版本。
+pub let generator_id : String = "mooncassette/0.3.0"
 
 ///|
 /// 一次 LLM 请求。
@@ -191,8 +195,14 @@ pub(all) suberror CassetteError {
   /// 记录中保存的指纹与按记录内容重算的结果不一致（文件被手工改动）。
   IntegrityViolation(String)
   /// 回放时找不到与请求匹配的录制记录。
+  ///
+  /// 内容是「请求指纹」加上一句诊断结论：cassette 里有多少条记录、
+  /// 最接近的是哪一条、差在哪个字段。只给指纹不足以定位问题。
   NoMatch(String)
-  /// 顺序回放模式下记录已耗尽。
+  /// 顺序回放模式下记录已耗尽：测试要的调用次数多于录制的条数。
+  ///
+  /// 与 `NoMatch` 分开是必要的：耗尽要补录制，没有对应记录要改请求，
+  /// 两者混在一起会把排查引向错误的方向。
   Exhausted(String)
   /// 当前模式需要真实 Transport，但会话未提供。
   MissingTransport(String)
@@ -217,9 +227,9 @@ pub impl Show for CassetteError with fn output(self, logger) {
       )
     IntegrityViolation(message) =>
       logger.write_string("mooncassette: integrity violation: " + message)
-    NoMatch(fingerprint) =>
+    NoMatch(detail) =>
       logger.write_string(
-        "mooncassette: no recorded interaction matches request \{fingerprint}",
+        "mooncassette: no recorded interaction matches request " + detail,
       )
     Exhausted(message) =>
       logger.write_string("mooncassette: recording exhausted: " + message)

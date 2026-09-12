@@ -25,6 +25,20 @@ pub(all) enum MatchPolicy {
 } derive(Eq)
 
 ///|
+/// 策略名，用于日志与诊断输出。
+///
+/// 单独提供而不复用 `Show`：诊断报告需要的是稳定、可断言的短标识，
+/// 而 `Show` 的输出格式属于展示细节，将来可能调整。
+pub fn MatchPolicy::name(self : MatchPolicy) -> String {
+  match self {
+    Exact => "Exact"
+    FingerprintOnly => "FingerprintOnly"
+    Subset(_) => "Subset"
+    Sequential => "Sequential"
+  }
+}
+
+///|
 /// 一次成功匹配的结果。
 pub(all) struct MatchResult {
   /// 命中的记录在 cassette 中的下标，调用方据此推进游标。
@@ -68,6 +82,24 @@ pub fn find_match(
       search_by_fingerprint(request, interactions, clamp_cursor(cursor, total))
     Subset(keys) =>
       search_by_subset(request, interactions, clamp_cursor(cursor, total), keys)
+  }
+}
+
+///|
+/// 判断「没找到」是不是因为**录制已耗尽**。
+///
+/// 只有 `Sequential` 会耗尽：它按位置消费，游标越界就意味着录制的条数不够用。
+/// 环形模式（`Exact` / `FingerprintOnly` / `Subset`）永远会回卷，因此它们返回
+/// 「没找到」一定是确实没有对应记录。
+///
+/// 区分这两种情况的意义在于**修法不同**：耗尽要补录制，没有对应记录要改请求
+/// 或换匹配策略。把前者报成「没有匹配记录」会把用户引向错误的方向。
+///
+/// 空 cassette 不算耗尽：那属于「一条都没录」，报「没有匹配记录」更贴切。
+pub fn is_exhausted(policy : MatchPolicy, cursor : Int, total : Int) -> Bool {
+  match policy {
+    Sequential => total > 0 && (cursor < 0 || cursor >= total)
+    _ => false
   }
 }
 

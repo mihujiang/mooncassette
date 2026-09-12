@@ -235,9 +235,9 @@ and can be reviewed as a diff in code review, which is exactly why canonical key
 ```json
 {
   "format": "mooncassette",
-  "version": 1,
+  "version": 2,
   "meta": {
-    "generator": "mooncassette/0.3.0",
+    "generator": "mooncassette/0.4.0",
     "name": "chat-demo",
     "recorded_at": "2026-09-12T08:00:00Z"
   },
@@ -369,15 +369,69 @@ $ mooncassette diff examples/demo.cassette.json examples/demo.drifted.cassette.j
 drift detected: removed=0 changed=1 added=0 unchanged=1
 ```
 
+### Streaming responses
+
+LLM applications stream heavily. The approach here is: **keep every frame, and also aggregate a
+response body shaped exactly like a non-streaming one.**
+
+```text
+wire            data: {...} ──▶ SSE text
+                 │
+      ┌──────────┴──────────┐
+      ▼                     ▼
+ Response.stream        Response.body
+(raw frames, kept)     (final aggregate, same shape as non-streaming)
+```
+
+The point is that the unified model never forks: matching, drift detection, cost accounting and any
+code that does not care about chunking look only at `body`; code that needs to replay frame by
+frame looks at `stream`.
+
+- **SSE parsing follows the spec** (WHATWG HTML §9.2): all three line terminators, multi-line
+  `data:` joined with newlines, comments and `id` / `retry` ignored. A frame still buffered when
+  the stream ends is **discarded, as the spec requires** — better to lose a frame and have the
+  aggregate disagree than to pass off a possibly truncated stream as a complete one.
+- **Aggregation follows each vendor's delta semantics**: OpenAI's `chat.completion.chunk`
+  (including `tool_calls[].function.arguments`, which arrive in fragments) and Anthropic's named
+  events (`message_start` / `content_block_delta` / `message_delta` …, including fragmented
+  `delta.partial_json`). A fragment is not valid JSON until it is complete, so aggregation only
+  concatenates and never parses midway.
+- **`usage` is extracted from the stream**: reported only when both sides are present. A missing
+  half is left empty rather than filled with zero — filling in zero turns "not reported" into
+  "reported as zero", which is wrong information rather than missing information.
+- **Frames are sanitized too**: a frame carries the same model output, so sanitizing only the
+  aggregate would leave a back door in the streaming path.
+- Streaming and non-streaming are **detected automatically**: `HttpResponse` carries only a status
+  and a body, with no `Content-Type`, so the decision is made from the content (the first non-empty
+  line being `data:`, `event:` or a comment).
+
 ---
 
 ## CLI
 
 ```bash
-mooncassette verify <cassette.json>              # decode + integrity check; non-zero exit on failure
-mooncassette show   <cassette.json>              # print a summary (version, records, tokens, models)
-mooncassette diff   <old.json> <new.json>        # report drift between two recordings; exit 1 if any
+mooncassette verify  <cassette.json>                 # decode + integrity check; non-zero exit on failure
+mooncassette show    <cassette.json>                 # print a summary (version, records, tokens, models)
+mooncassette diff    <old.json> <new.json>           # report drift between two recordings; exit 1 if any
+mooncassette cost    <cassette.json> <prices.json>   # total token cost against a price table
+mooncassette explain <cassette.json> <request.json>  # say whether a request replays, and if not, why (exit 1)
 mooncassette help
+```
+
+`cost` and `explain` exist so that questions can be answered **without recompiling**:
+
+- `cost` takes a price table you supply (`{"model": {"input": micro-USD per million, "output": …}}`;
+  keys starting with `_` are treated as annotations and ignored). Prices are deliberately not
+  built in — they change often, and shipping a stale table only produces numbers that look precise
+  and are wrong. The summary also reports `priced` / `unpriced` / `no_usage` counts so you can see
+  how much of the recording the total actually covers.
+- `explain` answers "why doesn't this request replay?" using exactly the same diagnostic path as
+  the library, so its output matches the error message a failing test would show:
+
+```text
+match: no
+policy=Exact  cursor=0  interactions=1
+  #0  provider=openai  model=gpt-4o  differs: $.body.api_key (only in the request), $.body.model (only in the recording)
 ```
 
 `verify` checks both digests, so it can be a CI step on its own: any hand-edited cassette is
@@ -414,7 +468,7 @@ moon check --target js
 moon fmt && moon info
 ```
 
-**All 161 tests pass**, covering ten packages, each run on both `wasm-gc` and `js`. The point is not
+**All 208 tests pass**, covering twelve packages, each run on both `wasm-gc` and `js`. The point is not
 the line count but that **every invariant above has a matching assertion**:
 
 - FNV-1a is verified against the official vectors (empty string / `"a"` / `"foobar"`);
@@ -442,7 +496,29 @@ the line count but that **every invariant above has a matching assertion**:
   freshly recorded request must replay immediately;
 - manual recording never touches the `Transport` (the precondition for async adoption);
 - manual recording returns the sanitized response, identical to what replay returns — otherwise the
-  first run and later runs would observe different values.
+  first run and later runs would observe different values;
+- SSE: all three line terminators, multi-line `data:` joining, comments and unknown fields ignored,
+  BOM handling, empty frames, and the spec rule that an unterminated trailing frame is discarded;
+- SSE: `render ∘ parse` converges, and non-ASCII payloads do not shift (all indexing and slicing is
+  done per character, never per UTF-16 code unit);
+- event-stream detection does not misfire on JSON, HTML, or plain text that merely starts with
+  `data` (such as "database error");
+- aggregation: fragmented `tool_calls.arguments` and `partial_json` are only parsed once complete;
+- aggregation: a pure tool-call stream yields `content: null`, not an empty string — the two mean
+  different things;
+- aggregation: a half-reported `usage` is left empty while the aggregate fills in zero, so
+  "not reported" stays distinguishable from "reported as zero";
+- aggregation: an error frame becomes the body verbatim and is not aggregated further;
+- streaming: frame contents are sanitized before they reach the cassette, so the streaming path
+  cannot bypass "anything written to disk is sanitized";
+- format version: version 1 files still decode; reading version 1 and writing it back is byte
+  stable; adding a streamed interaction promotes the written version to 2, so no file ever claims
+  to be an old format while carrying new fields;
+- diagnostics: differing paths are sorted by code point (`String`'s own comparison is not
+  lexicographic — it compares length first), pinned by a test that distinguishes the two rules;
+- cost: integer arithmetic with a fixed rounding direction, so the same input always yields the
+  same amount; an unknown model reports "unknown" rather than zero;
+- cost: `tokens × price` uses `Int64` (MoonBit's `Int` is 32-bit, and 32 bits overflow silently).
 
 ---
 
@@ -457,7 +533,9 @@ the line count but that **every invariant above has a matching assertion**:
 | `sanitize` | Sanitizing policy and recursive sanitizing | No |
 | `codec` | Cassette encoding/decoding and integrity verification | No |
 | `drift` | Drift detection between two recordings | No |
-| `providers` | OpenAI / Anthropic protocol codecs, HTTP executor abstraction | No |
+| `providers` | OpenAI / Anthropic protocol codecs (including stream aggregation), HTTP executor abstraction | No |
+| `stream` | SSE frame parsing and rendering | No |
+| `cost` | Cost accounting against a caller-supplied price table | No |
 | `recorder` | `Transport` abstraction, session engine, `MockTransport` | No |
 | `mooncassette` | Facade: the shortest path to getting started | No |
 

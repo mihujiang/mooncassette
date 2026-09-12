@@ -203,9 +203,9 @@ let session = @mooncassette.auto_session(@core.Cassette::new("chat"), transport)
 let response = match session.try_replay(request) {
   Some(recorded) => recorded
   None => {
-    let http_request = protocol.encode(request)        // 同步
-    let http_response = my_client.send(http_request)   // ← 只有这一步需要 await
-    session.record(request, protocol.decode(http_response))  // 同步
+    let http_request = protocol.encode(request) // 同步
+    let http_response = my_client.send(http_request) // ← 只有这一步需要 await
+    session.record(request, protocol.decode(http_response)) // 同步
   }
 }
 ```
@@ -229,9 +229,9 @@ let response = match session.try_replay(request) {
 ```json
 {
   "format": "mooncassette",
-  "version": 1,
+  "version": 2,
   "meta": {
-    "generator": "mooncassette/0.3.0",
+    "generator": "mooncassette/0.4.0",
     "name": "chat-demo",
     "recorded_at": "2026-09-12T08:00:00Z"
   },
@@ -355,20 +355,67 @@ $ mooncassette diff examples/demo.cassette.json examples/demo.drifted.cassette.j
 drift detected: removed=0 changed=1 added=0 unchanged=1
 ```
 
+### 流式响应
+
+LLM 应用大量使用流式输出。处理原则是：**帧完整保留，同时聚合出一个与非流式同形的响应体。**
+
+```text
+线上            data: {...} ──▶ SSE 文本
+                 │
+      ┌──────────┴──────────┐
+      ▼                     ▼
+ Response.stream        Response.body
+（原始帧，逐个保留）    （聚合后的最终结果，与非流式同形）
+```
+
+好处是统一模型不必分叉：匹配、漂移检测、成本核算、以及不关心分片的代码只看 `body`；
+需要逐帧重放的场景去看 `stream`。
+
+- **SSE 解析严格按规范**（WHATWG HTML §9.2）：三种行终止符、多行 `data:` 以换行连接、
+  注释行与 `id` / `retry` 一并忽略。末尾没有空行时最后累积的帧**按规范丢弃**——
+  与其猜「大概只是漏了个终止空行」，不如少一帧让聚合结果对不上，而不是把一份可能
+  已被截断的流当作完整流转正。
+- **增量按各家语义聚合**：OpenAI 的 `chat.completion.chunk`（含分片发送的
+  `tool_calls[].function.arguments`）与 Anthropic 的命名事件（`message_start` /
+  `content_block_delta` / `message_delta` …，含分片到达的 `delta.partial_json`）。
+  分片只有拼完才是合法 JSON，所以聚合中途一律只拼接、不解析。
+- **`usage` 从流里抽出来**：两侧都上报才给出，缺一半时留空而不是补 0——
+  补 0 会把「没上报」写成「上报了 0」，那是错误信息而不是缺失信息。
+- **帧也要脱敏**：帧里装的是同一份模型输出，只脱敏聚合体等于在流式路径上留后门。
+- 流式与非流式**自动区分**：`HttpResponse` 只带状态码与响应体、没有 `Content-Type`，
+  因此按下议内容判断（首个非空行是 `data:` / `event:` / 注释行）。
+
 ---
 
 ## CLI
 
 ```bash
-mooncassette verify <cassette.json>              # 解码 + 完整性校验，非零退出码表示失败
-mooncassette show   <cassette.json>              # 打印概要（版本、记录数、token、模型）
-mooncassette diff   <old.json> <new.json>        # 报告两次录制之间的漂移，有漂移则退出码 1
+mooncassette verify  <cassette.json>                 # 解码 + 完整性校验，非零退出码表示失败
+mooncassette show    <cassette.json>                 # 打印概要（版本、记录数、token、模型）
+mooncassette diff    <old.json> <new.json>           # 报告两次录制之间的漂移，有漂移则退出码 1
+mooncassette cost    <cassette.json> <prices.json>   # 按价目表汇总 token 成本
+mooncassette explain <cassette.json> <request.json>  # 判断请求能否回放，不能则说明差在哪（退出码 1）
 mooncassette help
 ```
 
 `verify` 会同时校验两个摘要，因此它可以直接当作 CI 里的一步：
 任何被手工改动的 cassette 都会在那里被拦住，并精确定位到
 `$.interactions[i].integrity`。
+
+`cost` 与 `explain` 的意义是**不开编译器也能查**：
+
+- `cost` 需要一份由你提供的价目表（`{"模型名": {"input": 微美元/百万, "output": …}}`，
+  以 `_` 开头的键当作注记忽略）。本项目刻意不内置价格——价格变动频繁，内置一张
+  会过期的表只会让你拿到「看起来精确、其实已经错了」的数字。汇总里同时给出
+  `priced` / `unpriced` / `no_usage` 三个计数，让你看得见这个总额覆盖了多少条记录。
+- `explain` 回答「这个请求为什么回放不出来」，用的是与库内完全相同的诊断路径，
+  因此输出与测试失败时的错误消息一致：
+
+```text
+match: no
+policy=Exact  cursor=0  interactions=1
+  #0  provider=openai  model=gpt-4o  differs: $.body.api_key (only in the request), $.body.model (only in the recording)
+```
 
 参数解析刻意**不依赖位置**（不同后端 `@env.args()` 语义不一致），
 而是扫描已知子命令关键字，因此 native 与 js 上行为一致。
@@ -400,7 +447,7 @@ moon check --target js
 moon fmt && moon info
 ```
 
-当前 **161 个测试全部通过**，覆盖十个包，且在 `wasm-gc` 与 `js` 两个目标上各跑一遍。
+当前 **208 个测试全部通过**，覆盖十二个包，且在 `wasm-gc` 与 `js` 两个目标上各跑一遍。
 测试的重点不是行数，而是**每条不变量都有对应断言**，例如：
 
 - FNV-1a 用官方测试向量校验（空串 / `"a"` / `"foobar"`）；
@@ -420,7 +467,20 @@ moon fmt && moon info
 - 顺序模式耗尽抛 `Exhausted`，空 cassette 报 `NoMatch`——两者不可混；
 - 手动录入（`Session::record`）与自动录制产出同一形态，且「录完立刻回放」必须命中；
 - 手动录入绝不触碰 `Transport`（这是异步接入的前提）；
-- 手动录入返回的是脱敏后的响应，与回放返回的内容一致（否则首次运行与后续运行会看到不同的值）。
+- 手动录入返回的是脱敏后的响应，与回放返回的内容一致（否则首次运行与后续运行会看到不同的值）；
+- SSE：三种行终止符、多行 `data:` 连接、注释与未知字段忽略、BOM、空帧、以及「末尾无空行则丢弃」；
+- SSE：`render ∘ parse` 收敛，且非 ASCII 载荷不错位（索引与切片全部按字符进行）；
+- 事件流识别不误判 JSON、HTML 与「database error」这类前缀相似的纯文本；
+- 流式聚合：分片的 `tool_calls.arguments` 与 `partial_json` 只有拼完才解析；
+- 流式聚合：纯 tool call 的流写成 `content: null` 而非空串（两者语义不同）；
+- 流式聚合：`usage` 缺一半时留空，而聚合体里补 0——「没上报」与「上报了 0」可区分；
+- 流式聚合：错误帧原样作为响应体，不再被继续聚合；
+- 流式：帧内容落盘前必须脱敏（否则流式路径会绕开「落盘必脱敏」）；
+- 格式版本：旧版本（version 1）仍可读；「读入旧版本 → 写出旧版本」字节稳定；
+  追加流式记录后写出版本自动升到 2，不会写出「自称旧格式、其实含新字段」的文件；
+- 诊断：差异路径按**码点字典序**排序（`String` 自带的比较不是字典序，实测表现为先比长度）；
+- 成本：整数算术的取整方向是确定的，同一输入恒得同一金额；未知模型报「未知」而不是 0；
+- 成本：`token 数 × 价格` 用 `Int64`（MoonBit 的 `Int` 是 32 位，用 32 位会静默溢出）。
 
 ---
 
@@ -435,7 +495,9 @@ moon fmt && moon info
 | `sanitize` | 脱敏策略与递归脱敏 | 否 |
 | `codec` | cassette 编解码与完整性校验 | 否 |
 | `drift` | 两次录制之间的漂移检测 | 否 |
-| `providers` | OpenAI / Anthropic 协议编解码、HTTP 执行器抽象 | 否 |
+| `providers` | OpenAI / Anthropic 协议编解码（含流式聚合）、HTTP 执行器抽象 | 否 |
+| `stream` | SSE 帧解析与渲染 | 否 |
+| `cost` | 按价目表做成本核算 | 否 |
 | `recorder` | `Transport` 抽象、会话引擎、`MockTransport` | 否 |
 | `mooncassette` | 门面：最短上手路径 | 否 |
 

@@ -141,6 +141,7 @@ test "Cassette::push appends in recording order" {
 test "CassetteError renders actionable messages" {
   assert_eq(
     @core.CassetteError::UnsupportedVersion(99).to_string(),
-    "mooncassette: unsupported cassette format version 99, expected 1",
+    "mooncassette: unsupported cassette format version 99; this build reads versions 1 to " +
+    @core.cassette_format_version.to_string(),
   )
 }

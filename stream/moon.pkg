@@ -1,0 +1,7 @@
+// mooncassette/stream —— SSE（Server-Sent Events）帧的解析与渲染。
+//
+// 纯计算包，可在全部后端编译。本包只处理**线格式**，不含任何模型厂商的
+// 语义；把帧解释成统一响应是 `providers` 的职责。
+import {
+  "weopqrst/mooncassette/core",
+}

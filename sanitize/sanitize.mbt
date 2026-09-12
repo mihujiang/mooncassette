@@ -112,6 +112,9 @@ pub fn sanitize_request(
 /// 脱敏一个响应。
 ///
 /// `status` 与 `usage` 原样保留：它们是数值元数据，不承载密钥。
+///
+/// 流式响应的**每一帧也要脱敏**，否则「落盘内容一定经过脱敏」这条承诺
+/// 会在流式路径上被绕开——帧里装的是同一份模型输出。
 pub fn sanitize_response(
   response : @core.Response,
   policy : SanitizePolicy,
@@ -120,6 +123,57 @@ pub fn sanitize_response(
     status: response.status,
     body: sanitize_json(response.body, policy),
     usage: response.usage,
+    stream: match response.stream {
+      Some(frames) => Some(sanitize_frames(frames, policy))
+      None => None
+    },
+  }
+}
+
+///|
+/// 脱敏帧序列。
+fn sanitize_frames(
+  frames : Array[@core.StreamFrame],
+  policy : SanitizePolicy,
+) -> Array[@core.StreamFrame] {
+  let out : Array[@core.StreamFrame] = []
+  for frame in frames {
+    out.push({
+      event: frame.event,
+      data: sanitize_frame_data(frame.data, policy),
+    })
+  }
+  out
+}
+
+///|
+/// 脱敏一帧的 `data`。
+///
+/// 帧的 `data` 通常是一段 JSON（增量片段），此时按**键名**递归脱敏后再写回
+/// 规范文本——与响应体走同一套规则，不留缺口。
+///
+/// `[DONE]` 这类非 JSON 数据没有结构可依，退化为对整段文本做一次密钥形状
+/// 扫描：能覆盖「模型复述了密钥」的情形，代价是这一路没有键名可依据。
+fn sanitize_frame_data(data : String, policy : SanitizePolicy) -> String {
+  let parsed = @json.parse(data) catch {
+    _ => return sanitize_text(data, policy)
+  }
+  match parsed {
+    Object(_) | Array(_) =>
+      @canon.to_canonical_string(sanitize_json(parsed, policy))
+    _ => sanitize_text(data, policy)
+  }
+}
+
+///|
+/// 对一段纯文本做子串级脱敏。
+///
+/// 直接复用 `sanitize_json` 对字符串值的处理，避免这里再实现一套形状扫描
+/// 而与主路径产生分歧。
+fn sanitize_text(text : String, policy : SanitizePolicy) -> String {
+  match sanitize_json(Json::string(text), policy) {
+    String(redacted) => redacted
+    _ => text
   }
 }
 

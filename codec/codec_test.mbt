@@ -88,7 +88,10 @@ test "encoding writes the format tag and current version" {
   assert_true(
     text.has_prefix("{\"format\":\"mooncassette\",\"interactions\":["),
   )
-  assert_true(text.contains("\"version\":1"))
+  // 从常量派生而不是写死字面量：版本号变了这里不该跟着改。
+  assert_true(
+    text.contains("\"version\":" + @core.cassette_format_version.to_string()),
+  )
 }
 
 ///|
@@ -133,12 +136,58 @@ test "decoding rejects a foreign format tag" {
 }
 
 ///|
+test "decoding accepts the previous format version" {
+  // 向后兼容：旧版本写出的 cassette（version = 1）必须仍然可读，
+  // 否则升一次级就要迁移全部历史录制。
+  let text = "{\"format\":\"mooncassette\",\"version\":1,\"meta\":{\"name\":\"x\",\"generator\":\"g\"},\"interactions\":[]}"
+  match decode_result(text) {
+    Ok(cassette) => {
+      assert_eq(cassette.version, 1)
+      assert_eq(cassette.length(), 0)
+    }
+    Err(other) => fail("unexpected error: " + other.to_string())
+  }
+}
+
+///|
+test "re-encoding a previous-version cassette keeps the version stable" {
+  // 「读入 1 → 写出 1」：旧文件不该因为过一次手就改头换面。
+  let text = "{\"format\":\"mooncassette\",\"version\":1,\"meta\":{\"name\":\"x\",\"generator\":\"g\"},\"interactions\":[]}"
+  let cassette = match decode_result(text) {
+    Ok(value) => value
+    Err(other) => fail("unexpected error: " + other.to_string())
+  }
+  assert_true(@codec.encode(cassette, indent=0).contains("\"version\":1"))
+}
+
+///|
+test "adding a streamed interaction promotes the written version" {
+  // 若不升级，就会写出一个「自称旧格式、其实含新字段」的文件。
+  let text = "{\"format\":\"mooncassette\",\"version\":1,\"meta\":{\"name\":\"x\",\"generator\":\"g\"},\"interactions\":[]}"
+  let cassette = match decode_result(text) {
+    Ok(value) => value
+    Err(other) => fail("unexpected error: " + other.to_string())
+  }
+  cassette.push(
+    @core.Interaction::new(
+      @core.Request::new("openai", "gpt-4o", Json::null()),
+      @core.Response::ok(Json::null(), stream=[@core.StreamFrame::new("data")]),
+    ),
+  )
+  assert_true(
+    @codec.encode(cassette, indent=0).contains(
+      "\"version\":" + @core.stream_format_version.to_string(),
+    ),
+  )
+}
+
+///|
 test "decoding rejects an unsupported format version" {
-  let text = "{\"format\":\"mooncassette\",\"version\":2,\"meta\":{\"name\":\"x\",\"generator\":\"g\"},\"interactions\":[]}"
+  let text = "{\"format\":\"mooncassette\",\"version\":99,\"meta\":{\"name\":\"x\",\"generator\":\"g\"},\"interactions\":[]}"
   match decode_result(text) {
     Ok(_) => fail("expected a failure")
     Err(@core.CassetteError::UnsupportedVersion(version)) =>
-      assert_eq(version, 2)
+      assert_eq(version, 99)
     Err(other) => fail("unexpected error: " + other.to_string())
   }
 }

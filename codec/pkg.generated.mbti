@@ -8,11 +8,15 @@ import {
 // Values
 pub fn decode(StringView, verify? : Bool) -> @core.Cassette raise @core.CassetteError
 
+pub fn decode_request(StringView) -> @core.Request raise @core.CassetteError
+
 pub fn encode(@core.Cassette, indent? : Int) -> String
 
 pub let format_tag : String
 
 pub fn of_json(Json, verify? : Bool) -> @core.Cassette raise @core.CassetteError
+
+pub fn request_of_json(Json, String) -> @core.Request raise @core.CassetteError
 
 pub fn to_json(@core.Cassette) -> Json
 

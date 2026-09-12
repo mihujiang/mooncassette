@@ -1,16 +1,24 @@
-// mooncassette/codec —— cassette 的序列化格式（version = 1）。
+// mooncassette/codec —— cassette 的序列化格式。
+//
+// 写入端使用 `@core.cassette_format_version`（当前为 2）；
+// 读取端接受所有已发布过的版本，见 `@core.is_supported_version`。
 //
 // 文件形状：
 // {
 //   "format": "mooncassette",
-//   "version": 1,
-//   "meta": { "name": "…", "generator": "mooncassette/0.1.0", "recorded_at": "…"? },
+//   "version": 2,
+//   "meta": { "name": "…", "generator": "mooncassette/0.4.0", "recorded_at": "…"? },
 //   "interactions": [
 //     {
 //       "fingerprint": "fnv1a64:…",
 //       "integrity":   "fnv1a64:…",
 //       "request":  { "provider": "…", "model": "…", "body": … },
-//       "response": { "status": 200, "body": …, "usage": { "input_tokens": …, "output_tokens": … }? }
+//       "response": {
+//         "status": 200,
+//         "body": …,                                   // 聚合后的最终结果
+//         "usage":  { "input_tokens": …, "output_tokens": … }?,
+//         "stream": [ { "event": "…"?, "data": "…" } ]?  // 仅流式响应
+//       }
 //     }
 //   ]
 // }
@@ -28,7 +36,7 @@ pub let format_tag : String = "mooncassette"
 pub fn to_json(cassette : @core.Cassette) -> Json {
   let root : Map[String, Json] = Map([])
   root.set("format", Json::string(format_tag))
-  root.set("version", json_int(cassette.version))
+  root.set("version", json_int(effective_version(cassette)))
   root.set("meta", meta_to_json(cassette.meta))
   let interactions : Array[Json] = []
   for item in cassette.interactions {
@@ -78,7 +86,9 @@ pub fn of_json(
     )
   }
   let version = expect_int(require_field(root, "version", "$"), "$.version")
-  if version != @core.cassette_format_version {
+  // 读取端接受所有已发布过的版本（见 `@core.is_supported_version` 的说明），
+  // 因此旧 cassette 不需要迁移；只有真正不认识的版本才拒绝。
+  if !@core.is_supported_version(version) {
     raise @core.CassetteError::UnsupportedVersion(version)
   }
   let meta = meta_of_json(require_field(root, "meta", "$"))
@@ -126,6 +136,42 @@ pub fn decode(
 /// 构造一个「看起来像整数」的 JSON 数字，避免输出 `200.0` 这类噪声。
 fn json_int(value : Int) -> Json {
   Json::number(value.to_double(), repr=value.to_string())
+}
+
+///|
+/// 写入时实际使用的格式版本。
+///
+/// 规则：取「cassette 自己声明的版本」与「表达当前内容所需的最低版本」的
+/// 较大者。
+///
+/// - 内容里出现流式记录时最低需要 `@core.stream_format_version`：一个从旧
+///   文件读进来、又追加了流式记录的 cassette 声明值仍是旧版本，此时不升级
+///   就会写出一个「自称旧格式、其实含新字段」的文件；
+/// - 其余情况沿用声明值，于是「读入旧版本 → 写出旧版本」保持字节稳定，
+///   旧文件不会因为过一次手就悄悄改头换面。
+fn effective_version(cassette : @core.Cassette) -> Int {
+  let required = if has_stream(cassette) {
+    @core.stream_format_version
+  } else {
+    1
+  }
+  if cassette.version > required {
+    cassette.version
+  } else {
+    required
+  }
+}
+
+///|
+/// 是否含流式记录。
+fn has_stream(cassette : @core.Cassette) -> Bool {
+  for item in cassette.interactions {
+    match item.response.stream {
+      Some(_) => return true
+      None => ()
+    }
+  }
+  false
 }
 
 ///|
@@ -239,7 +285,22 @@ fn check_digest(
 }
 
 ///|
-fn request_of_json(
+/// 解析一个请求文本。
+///
+/// 形状与 `@core.Request::to_json` 对称：`{"provider": …, "model": …, "body": …}`。
+/// 供工具使用（例如 CLI 的未命中诊断），因此只做结构校验，不涉及任何摘要。
+pub fn decode_request(
+  text : StringView,
+) -> @core.Request raise @core.CassetteError {
+  let value = @json.parse(text) catch {
+    _ =>
+      raise @core.CassetteError::Malformed("request: input is not valid JSON")
+  }
+  request_of_json(value, "$")
+}
+
+///|
+pub fn request_of_json(
   value : Json,
   path : String,
 ) -> @core.Request raise @core.CassetteError {
@@ -271,7 +332,43 @@ fn response_of_json(
     Some(usage_value) => Some(usage_of_json(usage_value, path + ".usage"))
     None => None
   }
-  { status, body, usage }
+  // 缺省即「非流式响应」；版本 1 的文件永远走这一支。
+  let stream = match fields.get("stream") {
+    Some(stream_value) =>
+      Some(stream_frames_of_json(stream_value, path + ".stream"))
+    None => None
+  }
+  { status, body, usage, stream }
+}
+
+///|
+/// 解析帧序列。
+///
+/// 空数组同样被如实还原成「有流但零帧」：那只可能来自手工编辑，
+/// 而把手工痕迹悄悄抹平会让完整性校验失去意义。
+fn stream_frames_of_json(
+  value : Json,
+  path : String,
+) -> Array[@core.StreamFrame] raise @core.CassetteError {
+  let items = expect_array(value, path)
+  let frames : Array[@core.StreamFrame] = []
+  let mut index = 0
+  for item in items {
+    let frame_path = path + "[" + index.to_string() + "]"
+    let fields = expect_object(item, frame_path)
+    let data = expect_string(
+      require_field(fields, "data", frame_path),
+      frame_path + ".data",
+    )
+    let event = match fields.get("event") {
+      Some(event_value) =>
+        Some(expect_string(event_value, frame_path + ".event"))
+      None => None
+    }
+    frames.push({ event, data })
+    index = index + 1
+  }
+  frames
 }
 
 ///|

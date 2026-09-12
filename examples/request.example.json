@@ -1,0 +1,14 @@
+{
+  "_comment": "与 examples/demo.cassette.json 的第一条记录对应，用于演示 `mooncassette explain` 的命中情形。把 content 改成别的值再跑一次，就能看到未命中诊断。",
+  "provider": "openai",
+  "model": "gpt-4o",
+  "body": {
+    "api_key": "***REDACTED***",
+    "messages": [
+      {
+        "content": "你好，请介绍一下自己",
+        "role": "user"
+      }
+    ]
+  }
+}

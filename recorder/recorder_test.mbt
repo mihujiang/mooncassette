@@ -467,6 +467,31 @@ test "manual recording never touches the transport" {
 }
 
 ///|
+test "streamed frames are sanitized before they reach the cassette" {
+  // 帧里装的是同一份模型输出。若只脱敏聚合体，流式路径就成了绕过
+  // 「落盘内容一定经过脱敏」这条承诺的后门。
+  let mock = @recorder.MockTransport::new()
+  let request = request_of("gpt-4o", @json.parse("{\"a\":1}"))
+  let payload = "{\"delta\":{\"access_token\":\"leak-me\"}}"
+  mock.on(
+    request,
+    @core.Response::ok(@json.parse(payload), stream=[
+      @core.StreamFrame::new(payload),
+    ]),
+  )
+  let session = @recorder.Session::new(
+    @core.Cassette::new("demo"),
+    mode=@recorder.Mode::Record,
+    transport=mock,
+  )
+  let _ = send_result(session, request).unwrap()
+  let recorded = session.cassette().interactions[0].response.stream.unwrap()
+  assert_eq(recorded.length(), 1)
+  assert_false(recorded[0].data.contains("leak-me"))
+  assert_true(recorded[0].data.contains("***REDACTED***"))
+}
+
+///|
 test "unscripted mock responses surface as an explicit 500" {
   let mock = @recorder.MockTransport::new()
   let response = @recorder.MockTransport::call_count(mock) // 仅确认访问器可用

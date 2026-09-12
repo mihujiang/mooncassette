@@ -1,10 +1,12 @@
 // mooncassette/sanitize —— 录制内容的脱敏。
 //
 // 纯计算包，可在全部后端编译。
-import {
-  "weopqrst/mooncassette/core",
-}
-
+//
+// 依赖 `canon` 是因为流式响应的每一帧也要脱敏：帧的 `data` 是一段 JSON 文本，
+// 按下议按键名脱敏之后必须重新序列化回文本，而序列化必须走规范文本，
+// 才能保证同一份帧在任何后端写出同样的字节。
 import {
   "moonbitlang/core/json",
-} for "test"
+  "weopqrst/mooncassette/canon",
+  "weopqrst/mooncassette/core",
+}

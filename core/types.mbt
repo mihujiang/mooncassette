@@ -6,11 +6,31 @@
 //    任何跨运行会变化的信息（时间戳、耗时、随机数）只能放进 `CassetteMeta`。
 
 ///|
-/// cassette 格式版本号。
+/// 当前写入的 cassette 格式版本。
 ///
-/// 写入时使用当前版本；读取时严格校验。这样未来若改变语义，
-/// 旧版本的 reader 会明确报错，而不是把新格式「读歪」。
-pub let cassette_format_version : Int = 1
+/// 历史：
+/// - `1`：0.3.0 及更早写出的格式；
+/// - `2`：引入流式记录（`Response.stream`）。
+pub let cassette_format_version : Int = 2
+
+///|
+/// 引入流式记录（`Response.stream`）的格式版本。
+///
+/// 单独写出来，是因为写入端需要判断「这份内容最低要用哪个版本才能表达」：
+/// 从旧文件读进来、又追加了流式记录的 cassette 声明的仍是旧版本，此时必须
+/// 升到本值，否则文件会谎报自己是旧格式。
+pub let stream_format_version : Int = 2
+
+///|
+/// 读取端是否支持某个格式版本。
+///
+/// 读取端接受**所有已发布过的版本**，因此旧 cassette 不需要迁移就能继续用；
+/// 写入端则始终写当前版本。这样旧读取端遇到带流式记录的 cassette 会明确报
+/// `UnsupportedVersion`，而不是把不认识的 `stream` 字段悄悄丢掉——后者会让
+/// 完整性校验以「摘要对不上」的形式失败，用户根本看不出真正的原因。
+pub fn is_supported_version(version : Int) -> Bool {
+  version >= 1 && version <= cassette_format_version
+}
 
 ///|
 /// 生成器标识。写入每个 cassette，便于追溯产出来源与排查兼容性问题。
@@ -18,7 +38,7 @@ pub let cassette_format_version : Int = 1
 /// 必须与 `moon.mod` 里的 `version` 保持一致：CI 会比对这两处，不一致
 /// 直接失败。之所以要靠校验而不是共享常量，是因为 MoonBit 无法在编译期
 /// 读取模块元信息，而这个标识一旦漂移，cassette 就会谎报产出版本。
-pub let generator_id : String = "mooncassette/0.3.0"
+pub let generator_id : String = "mooncassette/0.4.0"
 
 ///|
 /// 一次 LLM 请求。
@@ -59,6 +79,27 @@ pub fn Usage::total(self : Usage) -> Int {
 }
 
 ///|
+/// 流式响应中的一帧。
+///
+/// 只保留 SSE 的 `event` 与 `data` 两个字段：
+///
+/// - `id` / `retry` 属于「断线重连」的传输层元数据，不是模型输出，而且往往
+///   带随机性；写进 cassette 只会让漂移检测误报；
+/// - 以 `:` 开头的注释行按规范本就应当忽略。
+pub(all) struct StreamFrame {
+  /// SSE 的 `event:` 字段。OpenAI 不发这个字段，此时为 `None`。
+  event : String?
+  /// SSE 的 `data:` 字段；同一帧内的多个 `data:` 行以 `\n` 连接。
+  data : String
+} derive(Eq)
+
+///|
+/// 构造一帧。
+pub fn StreamFrame::new(data : String, event? : String) -> StreamFrame {
+  { event, data }
+}
+
+///|
 /// 一次 LLM 响应。
 ///
 /// `status` 沿用 HTTP 语义；非 HTTP 传输（例如本地 mock）使用 0。
@@ -66,21 +107,36 @@ pub(all) struct Response {
   status : Int
   body : Json
   usage : Usage?
+  /// 流式响应被逐帧记录时的帧序列。
+  ///
+  /// `body` 始终保存**聚合后的最终结果**（与非流式响应同形），因此匹配、
+  /// 漂移检测与成本核算都不必区分两种形态；本字段额外保留分片，是为了让
+  /// 回放能重放同样的帧序列。`None` 表示这不是一次流式响应。
+  stream : Array[StreamFrame]?
 } derive(Eq)
 
 ///|
 /// 构造响应。
-pub fn Response::new(status : Int, body : Json, usage? : Usage) -> Response {
-  { status, body, usage }
+pub fn Response::new(
+  status : Int,
+  body : Json,
+  usage? : Usage,
+  stream? : Array[StreamFrame],
+) -> Response {
+  { status, body, usage, stream }
 }
 
 ///|
 /// 构造一个 200 响应。
 ///
-/// 直接构造结构体而不转发给 `Response::new`：可选参数在函数体内
-/// 已经是 `Usage?`，直接落入字段可以避免一次无意义的拆装。
-pub fn Response::ok(body : Json, usage? : Usage) -> Response {
-  { status: 200, body, usage }
+/// 直接构造结构体而不转发给 `Response::new`：可选参数在函数体内已经是
+/// `Usage?` / `Array[StreamFrame]?`，直接落入字段可以避免一次无意义的拆装。
+pub fn Response::ok(
+  body : Json,
+  usage? : Usage,
+  stream? : Array[StreamFrame],
+) -> Response {
+  { status: 200, body, usage, stream }
 }
 
 ///|
@@ -219,7 +275,10 @@ pub impl Show for CassetteError with fn output(self, logger) {
       logger.write_string("mooncassette: schema violation: " + message)
     UnsupportedVersion(version) =>
       logger.write_string(
-        "mooncassette: unsupported cassette format version \{version}, expected \{cassette_format_version}",
+        "mooncassette: unsupported cassette format version " +
+        version.to_string() +
+        "; this build reads versions 1 to " +
+        cassette_format_version.to_string(),
       )
     FingerprintCollision(fingerprint) =>
       logger.write_string(
@@ -284,13 +343,41 @@ pub fn Usage::to_json(self : Usage) -> Json {
 }
 
 ///|
-/// 响应的 JSON 视图。未上报用量时省略 `usage` 字段。
+/// 一帧的 JSON 视图。`event` 缺省时省略该字段。
+pub fn StreamFrame::to_json(self : StreamFrame) -> Json {
+  let fields : Map[String, Json] = Map([])
+  match self.event {
+    Some(name) => fields.set("event", Json::string(name))
+    None => ()
+  }
+  fields.set("data", Json::string(self.data))
+  Json::object(fields)
+}
+
+///|
+/// 帧序列的 JSON 视图。
+fn stream_frames_to_json(frames : Array[StreamFrame]) -> Json {
+  let items : Array[Json] = []
+  for frame in frames {
+    items.push(frame.to_json())
+  }
+  Json::array(items)
+}
+
+///|
+/// 响应的 JSON 视图。
+///
+/// 未上报用量时省略 `usage` 字段；非流式响应省略 `stream` 字段。
 pub fn Response::to_json(self : Response) -> Json {
   let fields : Map[String, Json] = Map([])
   fields.set("status", json_int(self.status))
   fields.set("body", self.body)
   match self.usage {
     Some(usage) => fields.set("usage", usage.to_json())
+    None => ()
+  }
+  match self.stream {
+    Some(frames) => fields.set("stream", stream_frames_to_json(frames))
     None => ()
   }
   Json::object(fields)

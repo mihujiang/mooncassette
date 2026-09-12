@@ -1,0 +1,7 @@
+// mooncassette/cost —— 按价目表做成本核算。
+//
+// 纯计算包，可在全部后端编译。
+import {
+  "moonbitlang/core/json",
+  "weopqrst/mooncassette/core",
+}

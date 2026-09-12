@@ -1,0 +1,53 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "weopqrst/mooncassette/cost"
+
+import {
+  "weopqrst/mooncassette/core",
+}
+
+// Values
+pub fn estimate(PriceTable, String, @core.Usage) -> Cost?
+
+pub fn estimate_cassette(PriceTable, @core.Cassette) -> CassetteCost
+
+pub let micro_usd_per_million : Int64
+
+// Errors
+
+// Types and methods
+pub(all) struct CassetteCost {
+  total : Cost
+  priced : Int
+  unpriced : Int
+  no_usage : Int
+} derive(Eq)
+pub fn CassetteCost::render(Self) -> String
+
+pub(all) struct Cost {
+  input : Int64
+  output : Int64
+} derive(Eq)
+pub fn Cost::new(Int64, Int64) -> Self
+pub fn Cost::render(Self) -> String
+pub fn Cost::total(Self) -> Int64
+
+pub(all) struct Price {
+  input : Int
+  output : Int
+} derive(Eq)
+pub fn Price::new(Int, Int) -> Self
+pub fn Price::of_json(Json, String) -> Self raise @core.CassetteError
+
+pub(all) struct PriceTable {
+  prices : Map[String, Price]
+}
+pub fn PriceTable::get(Self, String) -> Price?
+pub fn PriceTable::length(Self) -> Int
+pub fn PriceTable::new() -> Self
+pub fn PriceTable::of_json(Json) -> Self raise @core.CassetteError
+pub fn PriceTable::set(Self, String, Price) -> Unit
+
+// Type aliases
+
+// Traits
+

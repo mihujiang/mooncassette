@@ -113,6 +113,26 @@ jobs:
             exit 1
           fi
 
+      # 成本核算：价目表由调用方提供，这里用仓库里的示例价目表。
+      - name: Cost rollup
+        run: moon run cmd/main --target js -- cost examples/demo.cassette.json examples/prices.example.json
+
+      # 命中情形：示例请求对应 demo 录制里的第一条记录，必须以 0 退出。
+      - name: Explain a matching request
+        run: moon run cmd/main --target js -- explain examples/demo.cassette.json examples/request.example.json
+
+      # 未命中情形：必须打印诊断并以退出码 1 结束（与 NoMatch 的语义一致）。
+      - name: Explain a non-matching request
+        run: |
+          set +e
+          moon run cmd/main --target js -- explain examples/openai_protocol.cassette.json examples/request.example.json
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo "expected exit code 1 (no match), got $code"
+            exit 1
+          fi
+
       - name: Run the offline demo
         run: moon run examples/offline_demo --target js
 

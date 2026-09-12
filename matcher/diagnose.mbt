@@ -288,10 +288,39 @@ fn sort_strings(items : Array[String]) -> Unit {
   for i = 1; i < items.length(); i = i + 1 {
     let value = items[i]
     let mut j = i - 1
-    while j >= 0 && items[j] > value {
+    while j >= 0 && compare_strings(items[j], value) > 0 {
       items[j + 1] = items[j]
       j = j - 1
     }
     items[j + 1] = value
   }
+}
+
+///|
+/// 按 Unicode 码点顺序比较两个字符串。
+///
+/// **不能直接用 `String` 的 `<` / `>`**：那个次序不由本包掌控，实测也不是
+/// 字典序（`"model"` 排在 `"api_key"` 前面，看起来是先比长度）。诊断报告的
+/// 次序必须由本包写死并能被断言，否则同一份输入可能给出不同次序的报告。
+fn compare_strings(left : String, right : String) -> Int {
+  let a = left.to_array()
+  let b = right.to_array()
+  let limit = if a.length() < b.length() { a.length() } else { b.length() }
+  for i = 0; i < limit; i = i + 1 {
+    let x = a[i].to_int()
+    let y = b[i].to_int()
+    if x < y {
+      return -1
+    }
+    if x > y {
+      return 1
+    }
+  }
+  if a.length() < b.length() {
+    return -1
+  }
+  if a.length() > b.length() {
+    return 1
+  }
+  0
 }

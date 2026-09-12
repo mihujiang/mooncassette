@@ -8,9 +8,13 @@ pub let default_drop_keys : Array[String]
 
 pub let generator_id : String
 
+pub fn is_supported_version(Int) -> Bool
+
 pub fn prune_json(Json, ArrayView[String]) -> Json
 
 pub fn request_json(String, String, Json) -> Json
+
+pub let stream_format_version : Int
 
 // Errors
 pub(all) suberror CassetteError {
@@ -65,10 +69,18 @@ pub(all) struct Response {
   status : Int
   body : Json
   usage : Usage?
+  stream : Array[StreamFrame]?
 } derive(Eq)
-pub fn Response::new(Int, Json, usage? : Usage) -> Self
-pub fn Response::ok(Json, usage? : Usage) -> Self
+pub fn Response::new(Int, Json, usage? : Usage, stream? : Array[StreamFrame]) -> Self
+pub fn Response::ok(Json, usage? : Usage, stream? : Array[StreamFrame]) -> Self
 pub fn Response::to_json(Self) -> Json
+
+pub(all) struct StreamFrame {
+  event : String?
+  data : String
+} derive(Eq)
+pub fn StreamFrame::new(String, event? : String) -> Self
+pub fn StreamFrame::to_json(Self) -> Json
 
 pub(all) struct Usage {
   input_tokens : Int

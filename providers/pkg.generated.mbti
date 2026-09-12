@@ -15,15 +15,29 @@ pub fn check_model_consistency(@core.Request) -> Unit raise @core.CassetteError
 
 pub fn decode_anthropic_response(HttpResponse) -> @core.Response
 
+pub fn decode_anthropic_stream_response(HttpResponse) -> @core.Response
+
 pub fn decode_openai_response(HttpResponse) -> @core.Response
+
+pub fn decode_openai_stream_response(HttpResponse) -> @core.Response
 
 pub let default_anthropic_version : String
 
+pub fn frame_payload(@core.StreamFrame) -> Json?
+
 pub fn int_field(Map[String, Json], String) -> Int?
+
+pub fn int_field_or(Map[String, Json], String, Int) -> Int
+
+pub fn json_int(Int) -> Json
 
 pub let openai_protocol_id : String
 
 pub fn parse_body_or_raw(String) -> Json
+
+pub fn parse_partial_json(String) -> Json
+
+pub fn string_field(Map[String, Json], String) -> String?
 
 pub fn usage_of(Map[String, Json], String, String, String) -> @core.Usage?
 

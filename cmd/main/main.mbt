@@ -11,6 +11,8 @@ fn is_command(token : String) -> Bool {
   token == "verify" ||
   token == "show" ||
   token == "diff" ||
+  token == "cost" ||
+  token == "explain" ||
   token == "help" ||
   token == "--help"
 }
@@ -29,6 +31,17 @@ fn print_usage() -> Unit {
   )
   println(
     "                                        (exits 1 when drift is found)",
+  )
+  println("  mooncassette cost   <cassette.json> <prices.json>")
+  println(
+    "                                        total token cost against a price table",
+  )
+  println("  mooncassette explain <cassette.json> <request.json>")
+  println(
+    "                                        say whether a request replays, and if not, why",
+  )
+  println(
+    "                                        (exits 1 when it does not match)",
   )
   println("  mooncassette help                     print this message")
 }
@@ -167,6 +180,76 @@ fn run_diff(old_path : String, new_path : String) -> Unit {
 }
 
 ///|
+/// 读取一个 JSON 文件。
+fn read_json(location : String) -> Json? {
+  let text = match read_text(location) {
+    None => return None
+    Some(value) => value
+  }
+  let value = @json.parse(text) catch { _ => return None }
+  Some(value)
+}
+
+///|
+/// 按价目表汇总成本。
+///
+/// 价目表由调用方提供，形状为 `{"模型名": {"input": 微美元/百万, "output": …}}`。
+/// 本项目刻意不内置价格：模型价格变动频繁，内置一张会过期的表只会让使用者
+/// 拿到「看起来精确、其实已经错了」的数字。
+fn run_cost(cassette_path : String, table_path : String) -> Unit {
+  let cassette = match load(cassette_path) {
+    Err(message) => return fail(message)
+    Ok(value) => value
+  }
+  let value = match read_json(table_path) {
+    None =>
+      return fail(
+        "mooncassette: cannot read a JSON price table from: " + table_path,
+      )
+    Some(value) => value
+  }
+  let table = @cost.PriceTable::of_json(value) catch {
+    error => return fail(error.to_string())
+  }
+  println(@cost.estimate_cassette(table, cassette).render())
+}
+
+///|
+/// 判断一个请求能不能在这份录制里回放；不能则说明差在哪里。
+///
+/// 存在的意义是**不开编译器也能诊断**：CI 里一个回放失败的测试，可以把请求
+/// 导出成 JSON 之后用这个子命令查，而不必改代码重跑一遍。
+fn run_explain(cassette_path : String, request_path : String) -> Unit {
+  let cassette = match load(cassette_path) {
+    Err(message) => return fail(message)
+    Ok(value) => value
+  }
+  let text = match read_text(request_path) {
+    None => return fail("mooncassette: cannot read file: " + request_path)
+    Some(value) => value
+  }
+  let request = @codec.decode_request(text) catch {
+    error => return fail(error.to_string())
+  }
+  // 会话默认就是最安全的 `Playback` + `Exact`，且回放模式在构造上不持有
+  // Transport，因此这条命令绝不会发起任何真实调用。
+  let session = @recorder.Session::new(cassette)
+  let replayed = session.try_replay(request) catch {
+    error => return fail(error.to_string())
+  }
+  match replayed {
+    Some(_) => println("match: yes  the recording covers this request")
+    None => {
+      println("match: no")
+      for line in session.diagnose(request).lines() {
+        println(line)
+      }
+      @sys.exit(1)
+    }
+  }
+}
+
+///|
 fn main {
   let argv = @env.args()
   // 丢掉 argv[0]（native 为程序名，js 为运行时），其余用关键字扫描定位。
@@ -208,6 +291,17 @@ fn main {
       } else if name == "diff" {
         match paths {
           [old_path, new_path, ..] => run_diff(old_path, new_path)
+          _ => print_usage()
+        }
+      } else if name == "cost" {
+        match paths {
+          [cassette_path, table_path, ..] => run_cost(cassette_path, table_path)
+          _ => print_usage()
+        }
+      } else if name == "explain" {
+        match paths {
+          [cassette_path, request_path, ..] =>
+            run_explain(cassette_path, request_path)
           _ => print_usage()
         }
       } else {

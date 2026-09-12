@@ -65,13 +65,19 @@ pub fn AnthropicMessages::auth_headers(
 /// 解码：HTTP 响应 → 统一响应。
 ///
 /// 独立成自由函数，理由同 OpenAI：响应形状与 `base_url` 无关。
+///
+/// 流式响应会自动识别并聚合，判据与 OpenAI 相同（见
+/// `decode_openai_response` 的说明）。
 pub fn decode_anthropic_response(response : HttpResponse) -> @core.Response {
+  if @stream.looks_like_event_stream(response.body) {
+    return decode_anthropic_stream_response(response)
+  }
   let body = parse_body_or_raw(response.body)
   let usage = match as_object(body) {
     Some(fields) => usage_of(fields, "usage", "input_tokens", "output_tokens")
     None => None
   }
-  { status: response.status, body, usage }
+  { status: response.status, body, usage, stream: None }
 }
 
 ///|

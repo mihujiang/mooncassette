@@ -57,7 +57,15 @@ pub fn OpenAiChat::auth_headers(self : OpenAiChat) -> Array[(String, String)] {
 ///
 /// 错误状态码同样正常返回（并把错误体一并保留），因为「限流时怎么办」
 /// 也需要回归测试。
+///
+/// 流式响应（`text/event-stream`）会自动被识别并聚合。识别方式是**看内容**
+/// 而不是看响应头——`HttpResponse` 只带状态码与响应体，没有 `Content-Type`
+/// 可用；而 SSE 的首个非空行必然是 `data:` / `event:` / 注释行，JSON 响应体
+/// 以 `{` 开头，两者不会混淆。
 pub fn decode_openai_response(response : HttpResponse) -> @core.Response {
+  if @stream.looks_like_event_stream(response.body) {
+    return decode_openai_stream_response(response)
+  }
   let body = parse_body_or_raw(response.body)
   let usage = match as_object(body) {
     // 注意字段名差异：OpenAI 叫 prompt_tokens / completion_tokens，
@@ -66,7 +74,7 @@ pub fn decode_openai_response(response : HttpResponse) -> @core.Response {
       usage_of(fields, "usage", "prompt_tokens", "completion_tokens")
     None => None
   }
-  { status: response.status, body, usage }
+  { status: response.status, body, usage, stream: None }
 }
 
 ///|

@@ -111,6 +111,28 @@ test "differing paths are sorted so the report is stable" {
 }
 
 ///|
+test "the diagnostic order is lexicographic, not by length" {
+  // `String` 自带的比较不是字典序（实测 "model" 会排在 "api_key" 前面），
+  // 所以这里用一对「按长度排与按字典序排结果相反」的键把规则钉住：
+  // 字典序是 "aa" < "b"，按长度则会得到 "b" < "aa"。
+  let items = [
+    diagnose_interaction("gpt-4o", @json.parse("{\"b\":1,\"aa\":1}"), "a"),
+  ]
+  let request = @core.Request::new(
+    "openai",
+    "gpt-4o",
+    @json.parse("{\"b\":2,\"aa\":2}"),
+  )
+  let diagnosis = @matcher.diagnose(
+    request,
+    items[:],
+    @matcher.MatchPolicy::Exact,
+    0,
+  )
+  assert_eq(diagnosis.candidates[0].differing_paths, ["$.body.aa", "$.body.b"])
+}
+
+///|
 test "diagnose reports fields that exist on only one side" {
   let items = [
     diagnose_interaction(

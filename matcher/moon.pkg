@@ -1,0 +1,11 @@
+// mooncassette/matcher —— 回放匹配策略。
+//
+// 纯计算包，可在全部后端编译。
+import {
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/fingerprint",
+}
+
+import {
+  "moonbitlang/core/json",
+} for "test"

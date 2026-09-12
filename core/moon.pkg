@@ -1,0 +1,7 @@
+// mooncassette/core —— 数据模型、规范化与错误类型。
+//
+// 本包为纯计算包：不依赖任何 IO、网络或平台能力，
+// 可在 wasm / wasm-gc / js / native 全部后端编译与测试。
+import {
+  "moonbitlang/core/json",
+} for "test"

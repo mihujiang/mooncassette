@@ -1,0 +1,14 @@
+// mooncassette/recorder —— 录制/回放会话引擎。
+//
+// 本包只依赖纯计算包：真实网络调用通过 `Transport` 由使用方注入，
+// 因此本包自身可以在全部后端编译与测试。
+import {
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/fingerprint",
+  "weopqrst/mooncassette/matcher",
+  "weopqrst/mooncassette/sanitize",
+}
+
+import {
+  "moonbitlang/core/json",
+} for "test"

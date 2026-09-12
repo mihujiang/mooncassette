@@ -1,0 +1,25 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "weopqrst/mooncassette"
+
+import {
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/recorder",
+}
+
+// Values
+pub fn auto_session(@core.Cassette, &@recorder.Transport) -> @recorder.Session
+
+pub fn record_session(@core.Cassette, &@recorder.Transport) -> @recorder.Session
+
+pub fn replay_session(StringView) -> @recorder.Session raise @core.CassetteError
+
+pub fn save(@recorder.Session, indent? : Int) -> String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

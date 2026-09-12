@@ -1,0 +1,62 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "weopqrst/mooncassette/recorder"
+
+import {
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/matcher",
+  "weopqrst/mooncassette/sanitize",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct MockTransport {
+  scripted : Map[String, @core.Response]
+  mut calls : Int
+}
+pub fn MockTransport::call_count(Self) -> Int
+pub fn MockTransport::new() -> Self
+pub fn MockTransport::on(Self, @core.Request, @core.Response) -> Unit
+pub impl Transport for MockTransport
+
+pub(all) enum Mode {
+  Record
+  Playback
+  Auto
+} derive(Eq)
+
+pub struct Session {
+  mut mode : Mode
+  cassette : @core.Cassette
+  mut cursor : Int
+  mut hits : Int
+  mut misses : Int
+  mut recorded : Int
+  transport : &Transport?
+  policy : @matcher.MatchPolicy
+  sanitize : @sanitize.SanitizePolicy
+}
+pub fn Session::cassette(Self) -> @core.Cassette
+pub fn Session::cursor(Self) -> Int
+pub fn Session::new(@core.Cassette, mode? : Mode, transport? : &Transport, policy? : @matcher.MatchPolicy, sanitize? : @sanitize.SanitizePolicy) -> Self
+pub fn Session::replay(Self, @core.Request) -> @core.Response raise @core.CassetteError
+pub fn Session::send(Self, @core.Request) -> @core.Response raise @core.CassetteError
+pub fn Session::set_mode(Self, Mode) -> Unit
+pub fn Session::stats(Self) -> Stats
+pub fn Session::try_replay(Self, @core.Request) -> @core.Response? raise @core.CassetteError
+
+pub(all) struct Stats {
+  hits : Int
+  misses : Int
+  recorded : Int
+} derive(Eq)
+
+// Type aliases
+
+// Traits
+pub(open) trait Transport {
+  fn send(Self, @core.Request) -> @core.Response raise @core.CassetteError
+}
+

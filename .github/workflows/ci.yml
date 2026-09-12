@@ -1,0 +1,49 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: Show toolchain versions
+        run: |
+          moon version --all
+          moon update
+
+      - name: Type check (wasm-gc)
+        run: moon check --target wasm-gc
+
+      - name: Type check (js)
+        run: moon check --target js
+
+      - name: Test (wasm-gc)
+        run: moon test --target wasm-gc
+
+      # 交叉验证：规范文本与指纹必须与后端无关，因此在第二个后端上重跑同一套测试。
+      - name: Test (js)
+        run: moon test --target js
+
+      - name: Formatting is stable
+        run: |
+          moon fmt
+          git diff --exit-code
+
+      # 端到端校验：解码 + 双摘要完整性检查。
+      # 这一步同时证明了「无需网络、无需密钥即可验收」。
+      - name: Verify the recorded cassette
+        run: moon run cmd/main --target js -- verify examples/demo.cassette.json
+
+      - name: Run the offline demo
+        run: moon run examples/offline_demo --target js

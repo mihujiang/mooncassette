@@ -1,0 +1,297 @@
+// mooncassette/recorder —— 录制/回放会话引擎。
+//
+// 分层意图：真实网络能力被隔离在 `Transport` 之后。引擎本身不碰 IO，
+// 因此「录制/回放/自动」三种模式的全部逻辑都可以在纯环境下测试。
+//
+// 脱敏职责归属：**引擎**统一脱敏，而不是各个 Transport 各自处理。
+// 这样无论接入哪家的适配器，「写进 cassette 的内容一定经过同一套策略」，
+// 不会因为某个适配器忘记脱敏而泄漏密钥。
+
+///|
+/// 被录制的底层调用。
+///
+/// 实现方只需把真实客户端适配到本接口，不必关心录制、匹配、脱敏。
+pub(open) trait Transport {
+  fn send(Self, @core.Request) -> @core.Response raise @core.CassetteError
+}
+
+///|
+/// 会话模式。
+pub(all) enum Mode {
+  /// 总是调用真实 Transport，并追加记录。
+  Record
+  /// 只从 cassette 取；未命中即报错，**绝不**发起真实调用。
+  Playback
+  /// 先尝试回放；未命中再调用真实 Transport 并追加记录。
+  Auto
+} derive(Eq)
+
+///|
+/// 会话统计。
+pub(all) struct Stats {
+  /// 命中已有录制的次数。
+  hits : Int
+  /// 未命中已有录制的次数。
+  misses : Int
+  /// 新产生的录制条数。
+  recorded : Int
+} derive(Eq)
+
+///|
+/// 录制/回放会话。
+///
+/// `cursor` 是回放推进位置：命中的记录会被跳过，从而正确处理
+/// 「同一请求被录制多次」的场景。`Auto` 模式下每次新录制都会把
+/// 游标推到末尾。
+pub struct Session {
+  mut mode : Mode
+  cassette : @core.Cassette
+  mut cursor : Int
+  mut hits : Int
+  mut misses : Int
+  mut recorded : Int
+  transport : &Transport?
+  policy : @matcher.MatchPolicy
+  sanitize : @sanitize.SanitizePolicy
+}
+
+///|
+/// 创建会话。
+///
+/// 默认模式为 `Playback`（最安全：不会意外发起真实调用），
+/// 默认匹配策略为 `Exact`，默认脱敏策略为 `SanitizePolicy::default()`。
+pub fn Session::new(
+  cassette : @core.Cassette,
+  mode? : Mode,
+  transport? : &Transport,
+  policy? : @matcher.MatchPolicy,
+  sanitize? : @sanitize.SanitizePolicy,
+) -> Session {
+  {
+    mode: match mode {
+      Some(value) => value
+      None => Mode::Playback
+    },
+    cassette,
+    cursor: 0,
+    hits: 0,
+    misses: 0,
+    recorded: 0,
+    transport,
+    policy: match policy {
+      Some(value) => value
+      None => @matcher.MatchPolicy::Exact
+    },
+    sanitize: match sanitize {
+      Some(value) => value
+      None => @sanitize.SanitizePolicy::default()
+    },
+  }
+}
+
+///|
+/// 发送一次请求。
+///
+/// 这里存在一条**关键的不变量**：同一次业务请求会被派生成两种形态，
+/// 分别走两条不同链路，二者不可混用。
+///
+/// - `live`（发给 provider）：`normalize` 后直接发出，**保留密钥**。
+///   若这里也脱敏，真实鉴权会失败。
+/// - `stored`（用于匹配与落盘）：在 `live` 之上再 `sanitize`，**抹掉密钥**。
+///
+/// 录制与回放两侧都必须走这条同样的链路，指纹才能对齐。否则会出现
+/// 「录得进去、回放不出来」——因为落盘的是脱敏版本，而回放查询的是原版。
+/// 这个缺陷在早期版本里真实存在过，现在由本函数与 `prepare` 共同保证对称。
+///
+/// - `Record`：调用真实 Transport，追加记录，返回真实响应；
+/// - `Playback`：只从 cassette 取，未命中报 `NoMatch`；
+/// - `Auto`：先回放，未命中再录制（即为「首次自动录制」工作流）。
+pub fn Session::send(
+  self : Session,
+  request : @core.Request,
+) -> @core.Response raise @core.CassetteError {
+  let live = request.normalize()
+  let stored = @sanitize.sanitize_request(live, self.sanitize)
+  match self.mode {
+    Mode::Record => self.capture(live, stored)
+    Mode::Playback => self.replay_prepared(stored)
+    Mode::Auto =>
+      match self.try_match(stored) {
+        Some(response) => response
+        None => self.capture(live, stored)
+      }
+  }
+}
+
+///|
+/// 把外部请求转换为「用于匹配与落盘」的形态。
+///
+/// 顺序是**先规范化、再脱敏**，与 `send` 中的派生顺序严格一致。
+fn Session::prepare(self : Session, request : @core.Request) -> @core.Request {
+  @sanitize.sanitize_request(request.normalize(), self.sanitize)
+}
+
+///|
+/// 尝试回放。命中则推进游标并返回响应，未命中返回 `None`。
+///
+/// 调用方只需原样传入业务请求：规范化与脱敏由 `prepare` 统一处理，
+/// 因此不会出现「直接调用本函数时忘了脱敏导致命中不了」的陷阱。
+pub fn Session::try_replay(
+  self : Session,
+  request : @core.Request,
+) -> @core.Response? raise @core.CassetteError {
+  self.try_match(self.prepare(request))
+}
+
+///|
+/// 在**已准备好**（规范化 + 脱敏）的请求上执行匹配与游标推进。
+fn Session::try_match(
+  self : Session,
+  request : @core.Request,
+) -> @core.Response? raise @core.CassetteError {
+  let result = @matcher.find_match(
+    request,
+    self.cassette.interactions[:],
+    self.policy,
+    self.cursor,
+  )
+  match result {
+    Some(found) => {
+      self.cursor = found.index + 1
+      self.hits = self.hits + 1
+      Some(found.interaction.response)
+    }
+    None => {
+      self.misses = self.misses + 1
+      None
+    }
+  }
+}
+
+///|
+/// 强制回放。未命中时报 `NoMatch`。
+///
+/// 与 `try_replay` 的区别只在于「未命中」的处置：
+/// 这里的失败是显式的，适合在测试里断言「录制覆盖完整」。
+pub fn Session::replay(
+  self : Session,
+  request : @core.Request,
+) -> @core.Response raise @core.CassetteError {
+  self.replay_prepared(self.prepare(request))
+}
+
+///|
+/// 在**已准备好**的请求上强制回放。未命中时报 `NoMatch`。
+fn Session::replay_prepared(
+  self : Session,
+  request : @core.Request,
+) -> @core.Response raise @core.CassetteError {
+  match self.try_match(request) {
+    Some(response) => response
+    None =>
+      raise @core.CassetteError::NoMatch(@fingerprint.fingerprint(request))
+  }
+}
+
+///|
+/// 调用真实 Transport 并追加记录。
+///
+/// `live` 发给 provider（保留密钥），`stored` 写入 cassette（已脱敏）。
+/// 响应侧只做脱敏，因为 provider 返回的内容同样可能包含敏感信息
+/// （例如回显的鉴权头、或模型复述的密钥）。
+fn Session::capture(
+  self : Session,
+  live : @core.Request,
+  stored : @core.Request,
+) -> @core.Response raise @core.CassetteError {
+  let transport = match self.transport {
+    Some(transport) => transport
+    None =>
+      raise @core.CassetteError::MissingTransport(
+        "this mode needs a real transport, but the session was created without one",
+      )
+  }
+  let response = transport.send(live)
+  let safe_response = @sanitize.sanitize_response(response, self.sanitize)
+  self.cassette.push(@core.Interaction::new(stored, safe_response))
+  self.cursor = self.cassette.length()
+  self.recorded = self.recorded + 1
+  safe_response
+}
+
+///|
+/// 当前统计。
+pub fn Session::stats(self : Session) -> Stats {
+  { hits: self.hits, misses: self.misses, recorded: self.recorded }
+}
+
+///|
+/// 当前 cassette（录制模式下即为最新结果，可直接交给 `@codec.encode` 落盘）。
+pub fn Session::cassette(self : Session) -> @core.Cassette {
+  self.cassette
+}
+
+///|
+/// 当前回放游标。
+pub fn Session::cursor(self : Session) -> Int {
+  self.cursor
+}
+
+///|
+/// 切换模式。
+pub fn Session::set_mode(self : Session, mode : Mode) -> Unit {
+  self.mode = mode
+}
+
+///|
+/// 脚本化的假 Transport，用于测试与示例。
+///
+/// 未配置的请求返回 500：这样在测试里「本不该发生的真实调用」
+/// 会立刻表现为可断言的失败，而不是静默通过。
+///
+/// 注意：脚本按**规范化请求的指纹**索引（注册与查询两侧都会先
+/// `normalize`），因此调用方可以按业务原样书写请求，不必关心
+/// 对象键顺序或易变字段是否已剔除。
+///
+/// 这里刻意**不**做脱敏：真实 Transport 收到的是「保留密钥」的请求，
+/// Mock 必须与真实行为一致，否则会掩盖脱敏相关问题。
+pub struct MockTransport {
+  scripted : Map[String, @core.Response]
+  mut calls : Int
+}
+
+///|
+/// 创建一个空的 MockTransport。
+pub fn MockTransport::new() -> MockTransport {
+  { scripted: Map([]), calls: 0 }
+}
+
+///|
+/// 为某个请求登记响应。
+pub fn MockTransport::on(
+  self : MockTransport,
+  request : @core.Request,
+  response : @core.Response,
+) -> Unit {
+  self.scripted.set(@fingerprint.fingerprint(request.normalize()), response)
+}
+
+///|
+/// 实际被调用的次数。
+pub fn MockTransport::call_count(self : MockTransport) -> Int {
+  self.calls
+}
+
+///|
+pub impl Transport for MockTransport with fn send(self, request) {
+  self.calls = self.calls + 1
+  let key = @fingerprint.fingerprint(request.normalize())
+  match self.scripted.get(key) {
+    Some(response) => response
+    None => {
+      let body : Map[String, Json] = Map([])
+      body.set("error", Json::string("no scripted response for " + key))
+      @core.Response::new(500, Json::object(body))
+    }
+  }
+}

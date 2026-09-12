@@ -1,0 +1,35 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "weopqrst/mooncassette/sanitize"
+
+import {
+  "weopqrst/mooncassette/core",
+}
+
+// Values
+pub fn is_sensitive_key(String, SanitizePolicy) -> Bool
+
+pub fn sanitize_cassette(@core.Cassette, SanitizePolicy) -> @core.Cassette
+
+pub fn sanitize_interaction(@core.Interaction, SanitizePolicy) -> @core.Interaction
+
+pub fn sanitize_json(Json, SanitizePolicy) -> Json
+
+pub fn sanitize_request(@core.Request, SanitizePolicy) -> @core.Request
+
+pub fn sanitize_response(@core.Response, SanitizePolicy) -> @core.Response
+
+// Errors
+
+// Types and methods
+pub(all) struct SanitizePolicy {
+  exact_keys : Array[String]
+  key_suffixes : Array[String]
+  placeholder : String
+  scan_secret_shapes : Bool
+} derive(Eq)
+pub fn SanitizePolicy::default() -> Self
+
+// Type aliases
+
+// Traits
+

@@ -1,0 +1,28 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "weopqrst/mooncassette/fingerprint"
+
+import {
+  "weopqrst/mooncassette/core",
+}
+
+// Values
+pub let algorithm : String
+
+pub fn canonical_request(@core.Request) -> String
+
+pub fn canonical_text(String, String, Json) -> String
+
+pub fn fingerprint(@core.Request) -> String
+
+pub fn integrity_digest(@core.Interaction) -> String
+
+pub fn same_request(@core.Request, @core.Request) -> Bool
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

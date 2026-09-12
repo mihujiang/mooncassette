@@ -1,0 +1,11 @@
+// 离线示例：不联网、不需要 API Key 即可完整演示「录制 → 落盘 → 回放」。
+import {
+  "moonbitlang/core/json",
+  "moonbitlang/x/fs",
+  "weopqrst/mooncassette",
+  "weopqrst/mooncassette/canon",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/recorder",
+}
+
+pkgtype(kind: "executable")

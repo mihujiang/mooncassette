@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "weopqrst/mooncassette/matcher"
+
+import {
+  "weopqrst/mooncassette/core",
+}
+
+// Values
+pub fn find_match(@core.Request, ArrayView[@core.Interaction], MatchPolicy, Int) -> MatchResult? raise @core.CassetteError
+
+// Errors
+
+// Types and methods
+pub(all) enum MatchPolicy {
+  Exact
+  FingerprintOnly
+  Subset(Array[String])
+  Sequential
+} derive(Eq)
+
+pub(all) struct MatchResult {
+  index : Int
+  interaction : @core.Interaction
+} derive(Eq)
+
+// Type aliases
+
+// Traits
+

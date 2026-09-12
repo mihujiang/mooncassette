@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "weopqrst/mooncassette/canon"
+
+// Values
+pub fn fnv1a64(Bytes) -> UInt64
+
+pub fn fnv1a64_string(String) -> UInt64
+
+pub fn hex_u64(UInt64) -> String
+
+pub fn to_canonical_string(Json) -> String
+
+pub fn to_pretty_string(Json, indent? : Int) -> String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

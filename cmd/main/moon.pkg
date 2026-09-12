@@ -1,0 +1,13 @@
+// mooncassette CLI。
+//
+// 只承担「读文件 + 调库 + 打印」三件事，不含任何业务逻辑：
+// 所有解析与校验都复用库内的 @codec，确保 CLI 与库的行为不会分叉。
+import {
+  "moonbitlang/core/env",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
+  "weopqrst/mooncassette/codec",
+  "weopqrst/mooncassette/core",
+}
+
+pkgtype(kind: "executable")

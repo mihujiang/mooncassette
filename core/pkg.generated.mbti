@@ -1,0 +1,84 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "weopqrst/mooncassette/core"
+
+// Values
+pub let cassette_format_version : Int
+
+pub let default_drop_keys : Array[String]
+
+pub let generator_id : String
+
+pub fn prune_json(Json, ArrayView[String]) -> Json
+
+pub fn request_json(String, String, Json) -> Json
+
+// Errors
+pub(all) suberror CassetteError {
+  Malformed(String)
+  SchemaViolation(String)
+  UnsupportedVersion(Int)
+  FingerprintCollision(String)
+  IntegrityViolation(String)
+  NoMatch(String)
+  Exhausted(String)
+  MissingTransport(String)
+  TransportFailure(String)
+}
+pub impl Show for CassetteError
+
+// Types and methods
+pub(all) struct Cassette {
+  version : Int
+  meta : CassetteMeta
+  interactions : Array[Interaction]
+} derive(Eq)
+pub fn Cassette::length(Self) -> Int
+pub fn Cassette::new(String, recorded_at? : String, interactions? : Array[Interaction]) -> Self
+pub fn Cassette::push(Self, Interaction) -> Unit
+pub fn Cassette::total_input_tokens(Self) -> Int
+pub fn Cassette::total_output_tokens(Self) -> Int
+
+pub(all) struct CassetteMeta {
+  name : String
+  generator : String
+  recorded_at : String?
+} derive(Eq)
+pub fn CassetteMeta::new(String, recorded_at? : String) -> Self
+
+pub(all) struct Interaction {
+  request : Request
+  response : Response
+} derive(Eq)
+pub fn Interaction::new(Request, Response) -> Self
+pub fn Interaction::to_json(Self) -> Json
+
+pub(all) struct Request {
+  provider : String
+  model : String
+  body : Json
+} derive(Eq)
+pub fn Request::new(String, String, Json) -> Self
+pub fn Request::normalize(Self, drop_keys? : ArrayView[String]) -> Self
+pub fn Request::to_json(Self) -> Json
+
+pub(all) struct Response {
+  status : Int
+  body : Json
+  usage : Usage?
+} derive(Eq)
+pub fn Response::new(Int, Json, usage? : Usage) -> Self
+pub fn Response::ok(Json, usage? : Usage) -> Self
+pub fn Response::to_json(Self) -> Json
+
+pub(all) struct Usage {
+  input_tokens : Int
+  output_tokens : Int
+} derive(Eq)
+pub fn Usage::new(Int, Int) -> Self
+pub fn Usage::to_json(Self) -> Json
+pub fn Usage::total(Self) -> Int
+
+// Type aliases
+
+// Traits
+

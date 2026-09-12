@@ -1,0 +1,14 @@
+// mooncassette/drift —— 两次录制之间的漂移检测。
+//
+// 纯计算包，可在全部后端编译。
+import {
+  "weopqrst/mooncassette/canon",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/fingerprint",
+}
+
+import {
+  "moonbitlang/core/json",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/fingerprint",
+} for "test"

@@ -3,11 +3,14 @@ package "weopqrst/mooncassette"
 
 import {
   "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/drift",
   "weopqrst/mooncassette/recorder",
 }
 
 // Values
 pub fn auto_session(@core.Cassette, &@recorder.Transport) -> @recorder.Session
+
+pub fn compare_recordings(@core.Cassette, @core.Cassette) -> @drift.DriftReport
 
 pub fn record_session(@core.Cassette, &@recorder.Transport) -> @recorder.Session
 

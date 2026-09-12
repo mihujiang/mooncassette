@@ -45,5 +45,21 @@ jobs:
       - name: Verify the recorded cassette
         run: moon run cmd/main --target js -- verify examples/demo.cassette.json
 
+      # 自我比较必须报告「无漂移」——否则漂移检测本身就不稳定。
+      - name: Diff a cassette against itself
+        run: moon run cmd/main --target js -- diff examples/demo.cassette.json examples/demo.cassette.json
+
+      # 已知会发生漂移的那一对：必须检出，且必须返回退出码 1。
+      - name: Diff two recordings with known drift
+        run: |
+          set +e
+          moon run cmd/main --target js -- diff examples/demo.cassette.json examples/demo.drifted.cassette.json
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo "expected exit code 1 (drift detected), got $code"
+            exit 1
+          fi
+
       - name: Run the offline demo
         run: moon run examples/offline_demo --target js

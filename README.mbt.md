@@ -32,9 +32,10 @@ cassette 文件；之后无论在 CI、在同事的电脑上、还是在没有�
 不需要网络，也不需要 API Key：
 
 ```bash
-moon run examples/offline_demo --target js     # 完整走一遍录制 → 落盘 → 回放
+moon run examples/offline_demo --target js     # 完整走一遍：录制 → 落盘 → 回放 → 漂移检测
 moon run cmd/main --target js -- verify examples/demo.cassette.json
 moon run cmd/main --target js -- show   examples/demo.cassette.json
+moon run cmd/main --target js -- diff   examples/demo.cassette.json examples/demo.drifted.cassette.json
 moon test --target wasm-gc
 ```
 
@@ -194,13 +195,45 @@ cassette 会被提交进 git、贴进 issue、用于演示，所以**脱敏是�
   以免误伤 `max_tokens` / `total_tokens` 这类计数字段；
 - 字符串值中的密钥形状子串扫描（`sk-` 后接 8 位以上）。
 
+### 漂移检测
+
+回放解决的是「不该变的东西别变」；漂移检测解决的是「该变的东西变了没有」。
+
+你更新了 prompt、换了模型版本，重新录制了一份 cassette。直接看 JSON diff 是读不懂的
+（指纹变了、键序也会变）。`mooncassette diff` 回答你真正关心的三件事：
+
+| 类型 | 含义 |
+|---|---|
+| `Removed` | 这个调用在旧录制里有、新的没有 —— 调用被删了，或请求被改动 |
+| `Added` | 只出现在新录制里 —— 新增调用，或请求被改动 |
+| `Changed` | **请求完全相同，但响应变了** —— 这才是真正的模型行为漂移 |
+
+第三类最关键：**你的代码一行没改，模型的输出却变了。**
+
+两点刻意的设计：
+
+- **请求改动会报成「一条 Removed + 一条 Added」，而不是「一条 Changed」。**
+  因为我们无法判断改后的请求「对应」原来哪一条；与其猜错，不如如实报告。
+- **比较前会重新规范化请求。** 正常录制出来的请求本就是规范化形态（再规范化是幂等的），
+  但对手工构造或被外部工具改过的 cassette，这一步能避免把「易变字段残留」误判为漂移。
+  容错方向是「宁可少报」。
+
+`diff` 在有漂移时以退出码 1 结束，因此可以直接当作 CI 的一步。
+
+```text
+$ mooncassette diff examples/demo.cassette.json examples/demo.drifted.cassette.json
+[changed] gpt-4o #0 -> #0  b862439f
+drift detected: removed=0 changed=1 added=0 unchanged=1
+```
+
 ---
 
 ## CLI
 
 ```bash
-mooncassette verify <cassette.json>   # 解码 + 完整性校验，非零退出码表示失败
-mooncassette show   <cassette.json>   # 打印概要（版本、记录数、token、模型）
+mooncassette verify <cassette.json>              # 解码 + 完整性校验，非零退出码表示失败
+mooncassette show   <cassette.json>              # 打印概要（版本、记录数、token、模型）
+mooncassette diff   <old.json> <new.json>        # 报告两次录制之间的漂移，有漂移则退出码 1
 mooncassette help
 ```
 
@@ -238,8 +271,8 @@ moon check --target js
 moon fmt && moon info
 ```
 
-当前 **102 个测试全部通过**，覆盖八个包。测试的重点不是行数，而是
-**每条不变量都有对应断言**，例如：
+当前 **114 个测试全部通过**，覆盖九个包，且在 `wasm-gc` 与 `js` 两个目标上各跑一遍。
+测试的重点不是行数，而是**每条不变量都有对应断言**，例如：
 
 - FNV-1a 用官方测试向量校验（空串 / `"a"` / `"foobar"`）；
 - 规范文本的键序、转义、幂等性；
@@ -248,7 +281,9 @@ moon fmt && moon info
 - 脱敏不能误伤 `max_tokens` / `total_tokens`；
 - 真实调用的请求**必须保留密钥**（用记录型 Transport 断言）；
 - 带密钥的请求「录制后立刻回放」必须命中（回归测试）；
-- 回放模式下 `Transport` 调用次数必须为 0。
+- 回放模式下 `Transport` 调用次数必须为 0；
+- 漂移检测：键序/易变字段变化**不算**漂移，而响应变化**必须**算；
+- 漂移检测：重复的同一请求按出现顺序两两配对，报告顺序固定为 Removed → Changed → Added。
 
 ---
 
@@ -262,6 +297,7 @@ moon fmt && moon info
 | `matcher` | 四种匹配策略与环形查找 | 否 |
 | `sanitize` | 脱敏策略与递归脱敏 | 否 |
 | `codec` | cassette 编解码与完整性校验 | 否 |
+| `drift` | 两次录制之间的漂移检测 | 否 |
 | `recorder` | `Transport` 抽象、会话引擎、`MockTransport` | 否 |
 | `mooncassette` | 门面：最短上手路径 | 否 |
 
@@ -273,12 +309,14 @@ moon fmt && moon info
 
 ## 路线图
 
-- **V0.1（当前）** —— 数据模型、规范文本、指纹与完整性摘要、匹配、脱敏、
-  编解码、会话引擎、CLI、离线示例与文档。
-- **V0.2** —— 耗时与 token 用量的独立元数据层（不破坏确定性）；
-  cassette 的裁剪与合并命令；漂移检测报告。
-- **V0.3** —— 面向主流 provider 的 Transport 适配器与示例工程。
-- **V1.0** —— 格式冻结、迁移指南、多后端 CI 矩阵、发布到 mooncakes.io。
+- **V0.1（已完成，已发布）** —— 数据模型、规范文本、指纹与完整性摘要、匹配、
+  脱敏、编解码、会话引擎、CLI、离线示例与文档。
+- **V0.2（当前）** —— **漂移检测**（`drift` 包 + `mooncassette diff`）；
+  示例演示「模型换版本后行为漂移」的完整闭环。
+- **V0.3** —— 耗时与 token 用量的独立元数据层（不破坏确定性）；
+  cassette 的裁剪与合并命令。
+- **V0.4** —— 面向主流 provider 的 Transport 适配器与示例工程。
+- **V1.0** —— 格式冻结、迁移指南、多后端 CI 矩阵。
 
 ---
 

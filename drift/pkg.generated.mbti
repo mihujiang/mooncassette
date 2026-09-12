@@ -1,0 +1,42 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "weopqrst/mooncassette/drift"
+
+import {
+  "weopqrst/mooncassette/core",
+}
+
+// Values
+pub fn compare(@core.Cassette, @core.Cassette) -> DriftReport
+
+pub fn render_entry(DriftEntry) -> String
+
+// Errors
+
+// Types and methods
+pub(all) struct DriftEntry {
+  kind : DriftKind
+  fingerprint : String
+  model : String
+  old_index : Int?
+  new_index : Int?
+} derive(Eq)
+
+pub(all) enum DriftKind {
+  Removed
+  Added
+  Changed
+} derive(Eq)
+
+pub(all) struct DriftReport {
+  entries : Array[DriftEntry]
+  unchanged : Int
+} derive(Eq)
+pub fn DriftReport::count_of(Self, DriftKind) -> Int
+pub fn DriftReport::is_clean(Self) -> Bool
+pub fn DriftReport::lines(Self) -> Array[String]
+pub fn DriftReport::summary(Self) -> String
+
+// Type aliases
+
+// Traits
+

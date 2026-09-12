@@ -8,7 +8,11 @@
 ///|
 /// 已知子命令关键字。
 fn is_command(token : String) -> Bool {
-  token == "verify" || token == "show" || token == "help" || token == "--help"
+  token == "verify" ||
+  token == "show" ||
+  token == "diff" ||
+  token == "help" ||
+  token == "--help"
 }
 
 ///|
@@ -19,6 +23,13 @@ fn print_usage() -> Unit {
   println("USAGE:")
   println("  mooncassette verify <cassette.json>   decode and check integrity")
   println("  mooncassette show   <cassette.json>   print a summary")
+  println("  mooncassette diff   <old.json> <new.json>")
+  println(
+    "                                        report behavioural drift between two recordings",
+  )
+  println(
+    "                                        (exits 1 when drift is found)",
+  )
   println("  mooncassette help                     print this message")
 }
 
@@ -132,6 +143,30 @@ fn run_show(location : String) -> Unit {
 }
 
 ///|
+/// 比较两份录制并打印漂移报告。
+///
+/// 有漂移时以退出码 1 结束，因此可以直接当作 CI 的一步：
+/// 「重新录制后模型行为变了没有」这个问题就能自动回答。
+fn run_diff(old_path : String, new_path : String) -> Unit {
+  let old = match load(old_path) {
+    Err(message) => return fail(message)
+    Ok(cassette) => cassette
+  }
+  let new = match load(new_path) {
+    Err(message) => return fail(message)
+    Ok(cassette) => cassette
+  }
+  let report = @drift.compare(old, new)
+  for line in report.lines() {
+    println(line)
+  }
+  println(report.summary())
+  if !report.is_clean() {
+    @sys.exit(1)
+  }
+}
+
+///|
 fn main {
   let argv = @env.args()
   // 丢掉 argv[0]（native 为程序名，js 为运行时），其余用关键字扫描定位。
@@ -150,28 +185,30 @@ fn main {
   if command_at >= 0 {
     command = Some(args[command_at])
   }
-  let mut location : String? = None
-  let mut location_at = -1
+  // 子命令之后的所有非关键字 token 都视作路径参数（`diff` 需要两个）。
+  let paths : Array[String] = []
   for i = command_at + 1; i < args.length(); i = i + 1 {
-    if location_at < 0 && !is_command(args[i]) {
-      location_at = i
+    if !is_command(args[i]) {
+      paths.push(args[i])
     }
-  }
-  if location_at >= 0 {
-    location = Some(args[location_at])
   }
   match command {
     None => print_usage()
     Some(name) =>
       if name == "verify" {
-        match location {
-          Some(path) => run_verify(path)
-          None => print_usage()
+        match paths {
+          [path, ..] => run_verify(path)
+          _ => print_usage()
         }
       } else if name == "show" {
-        match location {
-          Some(path) => run_show(path)
-          None => print_usage()
+        match paths {
+          [path, ..] => run_show(path)
+          _ => print_usage()
+        }
+      } else if name == "diff" {
+        match paths {
+          [old_path, new_path, ..] => run_diff(old_path, new_path)
+          _ => print_usage()
         }
       } else {
         print_usage()

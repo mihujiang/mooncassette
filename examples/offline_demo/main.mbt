@@ -10,6 +10,10 @@
 let output_path : String = "examples/demo.cassette.json"
 
 ///|
+/// 第二份录制：模拟「模型换了版本」，用于演示漂移检测。
+let drifted_path : String = "examples/demo.drifted.cassette.json"
+
+///|
 /// 构造一个请求（含一个会泄漏密钥的字段，用来演示脱敏）。
 fn request_of(content : String) -> @core.Request {
   let body : Map[String, Json] = Map([])
@@ -100,5 +104,42 @@ fn main {
   println("replayed : " + @canon.to_canonical_string(replayed.body))
   let playback_stats = playback.stats()
   println("replay hits: " + playback_stats.hits.to_string())
+
+  // ── 第三步：漂移检测 ──────────────────────────────────────────────
+  // 模拟「模型换了版本」：同一批请求，第一个问题的答案变了。
+  // 注意这里的代码一行没改 —— 输出却变了，这正是漂移检测要捕获的情形。
+  let revised_transport = @recorder.MockTransport::new()
+  revised_transport.on(
+    request_of("你好，请介绍一下自己"),
+    chat_response("嗨，我是助手。", 12, 6),
+  )
+  revised_transport.on(
+    request_of("第二个问题"),
+    chat_response("这是第二个回答。", 8, 7),
+  )
+  let revised = @mooncassette.record_session(
+    @core.Cassette::new("offline-demo-v2", recorded_at="2026-09-12T09:00:00Z"),
+    revised_transport,
+  )
+  let _ = revised.send(request_of("你好，请介绍一下自己")) catch {
+    _ => panic()
+  }
+  let _ = revised.send(request_of("第二个问题")) catch { _ => panic() }
+
+  // 把 v2 也落盘，这样 CLI 的 `diff` 可以直接用仓库里的两个文件演示。
+  @fs.write_string_to_file(drifted_path, @mooncassette.save(revised)) catch {
+    _ => println("failed to write " + drifted_path)
+  }
+
+  let report = @mooncassette.compare_recordings(
+    session.cassette(),
+    revised.cassette(),
+  )
+  println("")
+  println("drift report (v1 -> v2):")
+  for line in report.lines() {
+    println("  " + line)
+  }
+  println("  " + report.summary())
   println("ok")
 }

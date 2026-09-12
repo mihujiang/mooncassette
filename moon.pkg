@@ -1,12 +1,13 @@
 // mooncassette —— 门面包（facade）。
 //
 // 各能力按职责分散在子包中（core / canon / fingerprint / matcher /
-// codec / sanitize / recorder）。本包不复刻这些 API，只提供
-// 「最短上手路径」：把创建会话、载入/保存 cassette 这几步串起来，
-// 让使用者不必一次记住全部子包名。
+// codec / sanitize / recorder / drift）。本包不复刻这些 API，只提供
+// 「最短上手路径」：把创建会话、载入/保存 cassette、比较两次录制
+// 这几步串起来，让使用者不必一次记住全部子包名。
 import {
   "weopqrst/mooncassette/codec",
   "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/drift",
   "weopqrst/mooncassette/recorder",
 }
 

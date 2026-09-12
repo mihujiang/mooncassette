@@ -1,4 +1,4 @@
-// 离线示例：不联网、不需要 API Key 即可完整演示「录制 → 落盘 → 回放」。
+// 离线示例：不联网、不需要 API Key 即可完整演示「录制 → 落盘 → 回放 → 漂移检测」。
 import {
   "moonbitlang/core/json",
   "moonbitlang/x/fs",

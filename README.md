@@ -1,5 +1,10 @@
 # mooncassette
 
+**中文** · [English](https://github.com/mihujiang/mooncassette/blob/main/README.en.md)
+
+[![mooncakes.io](https://img.shields.io/badge/mooncakes.io-weopqrst%2Fmooncassette-blue)](https://mooncakes.io/docs/weopqrst/mooncassette)
+[![license](https://img.shields.io/badge/license-Apache--2.0-green)](https://github.com/mihujiang/mooncassette/blob/main/LICENSE)
+
 **给 LLM 应用做确定性录制与回放 —— 让「调用大模型」这件事变得可以离线、可以复现、可以回归。**
 
 `mooncassette` 记录一次真实的 LLM 交互，把它落成一个可读、可 diff 的
@@ -24,6 +29,26 @@ cassette 文件；之后无论在 CI、在同事的电脑上、还是在没有�
 开发阶段   真实调用 ──▶ 录制 ──▶ demo.cassette.json ──▶ 提交进版本控制
 测试 / CI  无网络   ──▶ 回放 ──▶ 逐字节一致的结果，零密钥
 ```
+
+---
+
+## 安装
+
+```bash
+moon add weopqrst/mooncassette
+```
+
+在 `moon.pkg` 中按需引用：
+
+```text
+import {
+  "weopqrst/mooncassette",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/providers",
+}
+```
+
+已发布在 [mooncakes.io](https://mooncakes.io/docs/weopqrst/mooncassette)。
 
 ---
 

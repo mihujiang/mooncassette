@@ -1,0 +1,15 @@
+# 统一使用 LF：CI 在 Linux 上运行 `moon fmt` 并检查 `git diff --exit-code`，
+# 若换行符随平台漂移，这一步会产生假失败。
+* text=auto eol=lf
+
+# 文本文件里也不应做换行转换
+*.mbt text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.pkg text eol=lf
+*.mod text eol=lf
+
+# 二进制资产（本仓库暂无，占位以防将来加入）
+*.png binary
+*.jpg binary
+*.wasm binary

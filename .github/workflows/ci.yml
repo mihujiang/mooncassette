@@ -54,6 +54,19 @@ jobs:
             echo "::warning::moon fmt produced a diff (toolchain drift, not a code error)"
             git --no-pager diff --stat
             git --no-pager diff
+            # 同时写进运行摘要，便于直接查看差异而不必翻日志。
+            {
+              echo "### \`moon fmt\` 产生了差异"
+              echo ""
+              echo "这是**工具链版本漂移**造成的，不是代码错误："
+              echo "本仓库源码由较早的工具链格式化，而 CI 安装的是最新工具链。"
+              echo ""
+              echo "在真实终端执行 \`moon upgrade && moon fmt\` 即可消除。"
+              echo ""
+              echo '```diff'
+              git --no-pager diff
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
       # 端到端校验：解码 + 双摘要完整性检查。

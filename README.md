@@ -144,14 +144,19 @@ test "chat returns the recorded answer" {
 
 ### 你需要实现的只有「发出去」这一步
 
-```moonbit
+```moonbit nocheck
+///|
 let sender = @providers.FunctionSender::new(fn(request) {
-  MyClient::call(request)   // (HttpRequest) -> HttpResponse raise CassetteError
+  MyClient::call(request) // (HttpRequest) -> HttpResponse raise CassetteError
 })
+
+///|
 let transport = @providers.ProviderTransport::new(
   @providers.OpenAiChat::new(api_key, base_url="https://api.deepseek.com/v1"),
   sender,
 )
+
+///|
 let session = @mooncassette.auto_session(@core.Cassette::new("chat"), transport)
 ```
 
@@ -169,7 +174,7 @@ MoonBit 没有「从同步上下文启动异步任务」的入口（`moonbitlang
 - **客户端是同步的** → 用上面的 `FunctionSender`，几行搞定；
 - **客户端是异步的** → 在 async 上下文里分三步手工完成：
   `protocol.encode(request)`（同步构建）→ 异步发送 → `protocol.decode(response)`（同步解析）。
-  让录制/回放引擎本身支持 async 是需要单独设计的改动，见路线图 V0.3。
+  协议编解码本身与同步/异步无关，因此这两步可以在任何上下文中复用。
 
 ---
 
@@ -312,7 +317,7 @@ mooncassette help
 | 指纹用非密码学哈希 | 只做索引，一致性由文本全等兜底 | 无安全影响 |
 | `integrity` 用非密码学哈希 | 目的是检出**误改**，不是防**恶意伪造** | 需要防伪造请配合签名/权限控制 |
 | 脱敏只按**键名**判断 | 值里混进密钥无法可靠识别 | 已用 `sk-` 形状扫描部分缓解；敏感场景请人工复核 |
-| V0.1 不含耗时断言 | 耗时是非确定字段，先保证确定性 | 计划在 V0.2 以独立元数据形式引入 |
+| 不记录耗时 | 耗时是非确定字段，进入 `Interaction` 会破坏可复现性 | 需要延迟断言请在业务层另行测量 |
 | 库本体不含 `fs`/`http` 依赖 | 保持纯计算、全后端可编译 | 文件读写与网络由使用方接入 |
 
 ---
@@ -339,8 +344,7 @@ moon fmt && moon info
 - 回放模式下 `Transport` 调用次数必须为 0；
 - 漂移检测：键序/易变字段变化**不算**漂移，而响应变化**必须**算；
 - 漂移检测：重复的同一请求按出现顺序两两配对，报告顺序固定为 Removed → Changed → Added；
-- 协议解码用**真实 API 形状的报文**（含 429 错误体、HTML 网关错误页、非整数 token 数）验证；
-- `mizchi/x/http` 式的异步客户端**不能**实现同步的 `HttpSender`（这是本项目的已知边界，已在文档中标明）。
+- 协议解码用**真实 API 形状的报文**（含 429 错误体、HTML 网关错误页、非整数 token 数）验证。
 
 ---
 
@@ -365,19 +369,12 @@ moon fmt && moon info
 
 ---
 
-## 路线图
+## 已完成
 
-- **V0.1（已完成，已发布）** —— 数据模型、规范文本、指纹与完整性摘要、匹配、
-  脱敏、编解码、会话引擎、CLI、离线示例与文档。
-- **V0.2（已发布）** —— **漂移检测**（`drift` 包 + `mooncassette diff`）；
-  示例演示「模型换版本后行为漂移」的完整闭环。
-- **V0.3（进行中，尚未发布）** —— **provider 协议适配器**（`providers` 包：
-  OpenAI / Anthropic 的请求编码、响应解码、usage 提取、错误保留），
-  以及协议路径的离线示例。**待补**：让引擎支持 async 发送，
-  以便直接接入 `mizchi/x/http` 这类异步客户端。
-- **V0.4** —— 耗时与 token 用量的独立元数据层（不破坏确定性）；
-  cassette 的裁剪与合并命令。
-- **V1.0** —— 格式冻结、迁移指南、多后端 CI 矩阵。
+| 版本 | 内容 |
+|---|---|
+| `0.1.0` | 数据模型与规范 JSON 文本、跨目标稳定指纹、四种匹配策略、脱敏、cassette 编解码与双摘要完整性校验、会话引擎、`verify`/`show` CLI、离线示例 |
+| `0.2.0` | 漂移检测（`drift` 包 + `mooncassette diff`）；示例演示「模型换版本后行为漂移」的完整闭环 |
 
 ---
 

@@ -4,3 +4,6 @@ target/
 target
 .mooncakes/
 .moonagent/
+
+# 本地计划文件：只记录未完成事项，不对外展示，因此不提交、也不进入发布包。
+/PLAN.md

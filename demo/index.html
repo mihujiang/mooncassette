@@ -177,6 +177,13 @@ pre.code {
   本页面位于仓库的 <code>demo/</code>，是独立模块；构建产物在 <code>docs/</code>。
 </footer>
 
-<script type="module" src="./main.js"></script>
+<!--
+  用普通 script 而不是 `type="module"`：产物里没有 import / export / await，
+  因此不需要 ES 模块加载器。差别很实际 —— 普通 script 在 file:// 下也能加载，
+  于是这个页面**双击就能打开**，不必先起一个 HTTP 服务。
+
+  `defer` 只为稳妥：脚本在 body 末尾，本来就已经在 DOM 之后执行。
+-->
+<script src="./main.js" defer></script>
 </body>
 </html>

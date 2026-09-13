@@ -33,6 +33,18 @@ const bundle = join(here, "..", "_build", "js", "release", "build", "main", "mai
 }
 
 // ── 2. 最小 DOM 桩 ────────────────────────────────────────────────────────
+//
+// 桩刻意是**严格**的：只有 index.html 里真实存在的 id 才会被返回。
+//
+// 这不是洁癖。若 MoonBit 侧引用了一个 HTML 里没有的 id（两边一起改名时最容易漏的
+// 那种），浏览器里的表现是「点了没反应」，而且没有任何报错。放宽的桩会把这种缺陷
+// 一起放过去，严格的桩则让它变成一个失败的断言。
+const pageHtml = readFileSync(join(here, "..", "..", "docs", "index.html"), "utf8");
+const declaredIds = new Set(
+  [...pageHtml.matchAll(/id="([^"]+)"/g)].map((match) => match[1]),
+);
+const undeclaredIds = [];
+
 const elements = new Map();
 
 function makeElement(id) {
@@ -57,8 +69,29 @@ function element(id) {
 
 globalThis.document = {
   body: makeElement("body"),
-  getElementById: (id) => (id === "body" ? globalThis.document.body : element(id)),
+  getElementById: (id) => {
+    if (id === "body") {
+      return globalThis.document.body;
+    }
+    if (!declaredIds.has(id)) {
+      if (!undeclaredIds.includes(id)) {
+        undeclaredIds.push(id);
+      }
+      return undefined;
+    }
+    return element(id);
+  },
 };
+
+// 页面外壳本身也要守：产物是普通 script 而非 ES 模块，正是这一点让页面能双击打开。
+//
+// 断言写成「script 标签上不能有 type="module"」而不是「页面里不能出现这个字符串」：
+// index.html 的注释里就提到了它（解释为什么不用），全文匹配会被自己的注释绊倒。
+assert.match(pageHtml, /<script src="\.\/main\.js" defer><\/script>/, "页面应引用 ./main.js");
+assert.ok(
+  !/<script[^>]*type="module"/.test(pageHtml),
+  '不要用 type="module"：普通 script 在 file:// 下也能加载，页面才不必依赖 HTTP 服务',
+);
 
 // main.js 刻意没有 export（架构是「MoonBit 作入口，JS 不能反向调库」），
 // 因此 import 它本身就等于运行 main()。
@@ -179,5 +212,12 @@ assert.match(app(), /\[DONE\]/, "应当显示最后一帧");
   );
   assert.match(app(), /&lt;script&gt;/, "应当以转义形式显示");
 }
+
+// ── 9. 渲染过程中引用过的每个 id，都必须真实存在于 index.html ─────────────
+assert.deepEqual(
+  undeclaredIds,
+  [],
+  `渲染引用了 index.html 里不存在的 id：${undeclaredIds.join(", ")}`,
+);
 
 console.log("demo smoke test: ok");

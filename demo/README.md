@@ -20,18 +20,20 @@
 
 ## 本地运行
 
-页面用的是 ES 模块，`file://` 打开会被浏览器的同源策略挡住，需要一个 HTTP 服务：
-
 ```bash
 bash demo/build.sh          # 编译 + 跑测试 + 产出到 docs/
-cd docs && python -m http.server 8080
-# 打开 http://localhost:8080
 ```
 
-只想快速看一眼而不构建：
+然后 **直接双击 `docs/index.html`** 就能用。
+
+产物里没有 `import` / `export` / `await`，因此它被加载成普通 script 而不是 ES 模块 ——
+这个差别很实际：普通 script 在 `file://` 下也能加载，于是不必先起一个 HTTP 服务。
+（想用 HTTP 服务跑也可以：`cd docs && python -m http.server 8080`。）
+
+只想跑一遍验证、不产出：
 
 ```bash
-cd demo && moon build --target js --release && node test/smoke.mjs
+cd demo && moon build --target js --release && moon test --target js && node test/smoke.mjs
 ```
 
 ## 验证方式

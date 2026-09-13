@@ -26,12 +26,25 @@ echo "== 端到端冒烟测试（Node + 桩 DOM）=="
 node test/smoke.mjs
 
 echo "== 产出到 docs/ =="
-rm -rf ../docs
+#
+# 只删自己产出的那几个文件，**不要** `rm -rf ../docs`。
+#
+# `docs/` 里还住着 `screenshots/`（README 的配图，是人工产出、不是构建产物）。
+# 整目录删掉会把它一起清空 —— 而那种后果不会在构建时报错，要等到 README 上的图
+# 变成裂图才被发现。
 mkdir -p ../docs
+rm -f ../docs/main.js ../docs/index.html ../docs/.built-from
 cp _build/js/release/build/main/main.js ../docs/main.js
 cp index.html ../docs/index.html
 # .nojekyll：GitHub Pages 默认会过滤掉下划线开头的路径，本页面没有这类文件，
 # 但保留它可以让 Pages 完全按静态目录处理，不再做任何 Jekyll 加工。
 touch ../docs/.nojekyll
 
-echo "完成：docs/index.html + docs/main.js"
+# 记下这份产物是从哪一版源码构建的。
+#
+# 记源码摘要而不是产物摘要：本机工具链与 CI 工具链版本不同，编译出的 JS 逐字节
+# 不可比 —— 用产物摘要做检查，比的是编译器版本，不是源码。CI 也据此判断
+# 「docs/ 是不是过期的」。
+node source-digest.mjs > ../docs/.built-from
+
+echo "完成：docs/index.html + docs/main.js + docs/.built-from"

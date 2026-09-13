@@ -525,6 +525,7 @@ moon fmt && moon info
 | `0.1.0` | 数据模型与规范 JSON 文本、跨目标稳定指纹、四种匹配策略、脱敏、cassette 编解码与双摘要完整性校验、会话引擎、`verify`/`show` CLI、离线示例 |
 | `0.2.0` | 漂移检测（`drift` 包 + `mooncassette diff`）；示例演示「模型换版本后行为漂移」的完整闭环 |
 | `0.3.0` | 协议适配与未命中诊断：`providers`（OpenAI / Anthropic）、`Session::record` 手动录入路径（异步客户端的接入方式）、`Session::diagnose` 与可读的未命中消息；修复顺序模式耗尽被误报为 `NoMatch`、`generator_id` 与模块版本脱钩 |
+| `0.4.0` | 流式响应：SSE 帧解析、OpenAI / Anthropic 增量聚合、以及回放侧的逐帧重放（`Session::replay_stream`）；`cost` 成本核算；CLI 新增 `cost` 与 `explain`。新增 `stream` 与 `cost` 两个包；cassette 格式版本升到 2，读取端兼容 1–2 |
 
 ---
 

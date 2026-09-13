@@ -568,6 +568,7 @@ their own IO (the examples and CLI in this repository use `moonbitlang/x`, which
 | `0.1.0` | Data model and canonical JSON text, cross-target stable fingerprints, four matching strategies, sanitizing, cassette codec with dual-digest integrity checking, session engine, `verify`/`show` CLI, offline examples |
 | `0.2.0` | Drift detection (`drift` package plus `mooncassette diff`); examples demonstrating the full loop from "model version changed" to a readable drift report |
 | `0.3.0` | Provider adapters and miss diagnostics: `providers` (OpenAI / Anthropic), the `Session::record` manual path for async clients, `Session::diagnose` and a readable no-match message; fixes sequential exhaustion being reported as `NoMatch`, and `generator_id` having drifted from the module version |
+| `0.4.0` | Streaming responses: SSE frame parsing, OpenAI / Anthropic delta aggregation, and frame-level replay (`Session::replay_stream`); `cost` accounting; the `cost` and `explain` CLI subcommands. Adds the `stream` and `cost` packages; cassette format version raised to 2, with readers accepting 1–2 |
 
 ---
 

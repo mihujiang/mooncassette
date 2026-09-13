@@ -141,6 +141,32 @@ extern "js" fn set_visible_ffi(element_id : String, visible : Bool) -> Unit =
   #| }
 
 ///|
+/// 读取当前 URL 的 hash（不含 `#`）。
+pub fn location_hash() -> String {
+  location_hash_ffi()
+}
+
+///|
+extern "js" fn location_hash_ffi() -> String =
+  #| function() { return location.hash ? location.hash.slice(1) : ""; }
+
+///|
+/// 写入 URL 的 hash。
+///
+/// 用 `history.replaceState` 而不是给 `location.hash` 赋值：后者每次都会往历史里
+/// 压一条记录，于是按一次浏览器的「后退」只回到上一个视图，而不是离开这个页面。
+pub fn set_location_hash(value : String) -> Unit {
+  set_location_hash_ffi(value)
+}
+
+///|
+extern "js" fn set_location_hash_ffi(value : String) -> Unit =
+  #| function(value) {
+  #|   const target = value ? "#" + value : location.pathname + location.search;
+  #|   history.replaceState(null, "", target);
+  #| }
+
+///|
 /// 打印到浏览器控制台。诊断失败原因时比在页面上显示更方便（不占版面）。
 pub fn console_log(message : String) -> Unit {
   console_log_ffi(message)

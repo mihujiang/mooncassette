@@ -67,6 +67,14 @@ function element(id) {
   return elements.get(id);
 }
 
+// 页面会读写地址栏的 hash（让视图可分享、可自动化截图），桩里也要有这两个全局。
+globalThis.location = { hash: "", pathname: "/", search: "" };
+globalThis.history = {
+  replaceState(_state, _title, url) {
+    globalThis.location.hash = typeof url === "string" && url.startsWith("#") ? url : "";
+  },
+};
+
 globalThis.document = {
   body: makeElement("body"),
   getElementById: (id) => {

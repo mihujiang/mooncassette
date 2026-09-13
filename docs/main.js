@@ -667,10 +667,15 @@ const _M0FP38weopqrst19mooncassette_2ddemo4main14set__html__ffi = function(eleme
    const element = document.getElementById(element_id);
    if (element) { element.innerHTML = html; }
  };
+const _M0FP38weopqrst19mooncassette_2ddemo4main24set__location__hash__ffi = function(value) {
+   const target = value ? "#" + value : location.pathname + location.search;
+   history.replaceState(null, "", target);
+ };
 const _M0FP38weopqrst19mooncassette_2ddemo4main17set__visible__ffi = function(element_id, visible) {
    const element = document.getElementById(element_id);
    if (element) { element.style.display = visible ? "" : "none"; }
  };
+const _M0FP38weopqrst19mooncassette_2ddemo4main19location__hash__ffi = function() { return location.hash ? location.hash.slice(1) : ""; };
 const _M0FP38weopqrst19mooncassette_2ddemo4main25on__delegated__click__ffi = function(container_id, handler) {
    const root = container_id === "body"
      ? document.body
@@ -801,22 +806,23 @@ const _M0FP38weopqrst12mooncassette4core19default__drop__keys = ["request_id", "
 const _M0FP38weopqrst12mooncassette11fingerprint9algorithm = "fnv1a64";
 const _M0FP38weopqrst12mooncassette5codec11format__tag = "mooncassette";
 const _M0FP38weopqrst12mooncassette5drift18short__fingerprintN7_2abindS83 = ":";
-const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS324 = 0;
-const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS325 = 1;
-const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS326 = 2;
-const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS327 = 3;
-const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS328 = 4;
+const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS340 = 0;
+const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS341 = 1;
+const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS342 = 2;
+const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS343 = 3;
+const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS344 = 4;
 const _M0FPB4seed = _M0FPB12random__seed();
 const _M0FP38weopqrst12mooncassette5codec6encodeN6constrS198 = 2;
-const _M0FP38weopqrst19mooncassette_2ddemo4main12sample__textN6constrS329 = "2026-09-13T00:00:00Z";
+const _M0FP38weopqrst19mooncassette_2ddemo4main12sample__textN6constrS345 = "2026-09-13T00:00:00Z";
 const _M0FPC28internal7strconv17check__underscoreN25_2atransition__table__178S186 = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5, 5, 5, 5, 5, 0, 1, 2, 5];
 const _M0FPC28internal7strconv15parse__inf__nanN25_2atransition__table__260S268 = [14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 3, 4, 14, 14, 14, 14, 14, 14, 14, 7, 14, 14, 14, 14, 5, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 6, 14, 14, 14, 0, 14, 14, 14, 14, 14, 14, 14, 14, 14, 8, 14, 14, 14, 14, 14, 1, 14, 14, 9, 14, 14, 14, 14, 14, 14, 14, 14, 10, 14, 14, 14, 14, 14, 14, 11, 14, 14, 14, 14, 14, 14, 14, 14, 14, 12, 14, 14, 14, 14, 14, 14, 14, 14, 13, 14, 1, 14, 14, 14, 14, 14, 14, 14];
-const _M0FP38weopqrst19mooncassette_2ddemo4main16render__diagnoseN6constrS332 = 5;
+const _M0FP38weopqrst19mooncassette_2ddemo4main16render__diagnoseN6constrS348 = 5;
 const _M0FPB18brute__force__findN6constrS9194 = 0;
 const _M0FPB28boyer__moore__horspool__findN6constrS9193 = 0;
 const _M0FP38weopqrst12mooncassette5drift18short__fingerprintN6constrS108 = 8;
-const _M0FP38weopqrst19mooncassette_2ddemo4main11leaky__textN6constrS330 = "2026-09-13T00:00:00Z";
-const _M0FP38weopqrst19mooncassette_2ddemo4main13drifted__textN6constrS331 = "2026-09-13T00:00:00Z";
+const _M0FP38weopqrst19mooncassette_2ddemo4main11leaky__textN6constrS346 = "2026-09-13T00:00:00Z";
+const _M0FP38weopqrst19mooncassette_2ddemo4main13drifted__textN6constrS347 = "2026-09-13T00:00:00Z";
+const _M0FP38weopqrst19mooncassette_2ddemo4main11apply__hashN6constrS349 = 0;
 function _M0FPC15abort5abortGRPB4JsonE(msg) {
   return $panic();
 }
@@ -7757,38 +7763,38 @@ function _M0FP38weopqrst12mooncassette8sanitize18sanitize__cassette(cassette, po
 function _M0FP28weopqrst12mooncassette19compare__recordings(old, new_) {
   return _M0FP38weopqrst12mooncassette5drift7compare(old, new_);
 }
-function _M0IP38weopqrst19mooncassette_2ddemo4main4ViewPB2Eq5equal(_x_148, _x_149) {
-  switch (_x_148) {
+function _M0IP38weopqrst19mooncassette_2ddemo4main4ViewPB2Eq5equal(_x_153, _x_154) {
+  switch (_x_153) {
     case 0: {
-      if (_x_149 === 0) {
+      if (_x_154 === 0) {
         return true;
       } else {
         return false;
       }
     }
     case 1: {
-      if (_x_149 === 1) {
+      if (_x_154 === 1) {
         return true;
       } else {
         return false;
       }
     }
     case 2: {
-      if (_x_149 === 2) {
+      if (_x_154 === 2) {
         return true;
       } else {
         return false;
       }
     }
     case 3: {
-      if (_x_149 === 3) {
+      if (_x_154 === 3) {
         return true;
       } else {
         return false;
       }
     }
     default: {
-      if (_x_149 === 4) {
+      if (_x_154 === 4) {
         return true;
       } else {
         return false;
@@ -7856,19 +7862,19 @@ function _M0MP38weopqrst19mooncassette_2ddemo4main4View4hint(self) {
 function _M0FP38weopqrst19mooncassette_2ddemo4main8view__of(name) {
   switch (name) {
     case "overview": {
-      return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS324;
+      return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS340;
     }
     case "detail": {
-      return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS325;
+      return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS341;
     }
     case "drift": {
-      return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS326;
+      return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS342;
     }
     case "diagnose": {
-      return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS327;
+      return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS343;
     }
     case "sanitize": {
-      return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS328;
+      return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS344;
     }
     default: {
       return undefined;
@@ -7988,7 +7994,7 @@ function _M0FP38weopqrst19mooncassette_2ddemo4main26rate__limited__interaction()
   return _M0MP38weopqrst12mooncassette4core11Interaction3new(_M0FP38weopqrst19mooncassette_2ddemo4main13chat__request("再问一次同样的问题。"), _M0MP38weopqrst12mooncassette4core8Response3new(429, new _M0DTPB4Json6Object(body), undefined, _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11StreamFrameEE4None__));
 }
 function _M0FP38weopqrst19mooncassette_2ddemo4main12sample__text() {
-  return _M0FP38weopqrst12mooncassette5codec6encode(_M0MP38weopqrst12mooncassette4core8Cassette3new("demo", _M0FP38weopqrst19mooncassette_2ddemo4main12sample__textN6constrS329, new _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11InteractionEE4Some([_M0FP38weopqrst19mooncassette_2ddemo4main18plain__interaction("确定性回放指的是：不重新调用模型，只按录制好的响应逐字节重演。"), _M0FP38weopqrst19mooncassette_2ddemo4main22streaming__interaction("结论：它把外部依赖变成可离线运行的测试"), _M0FP38weopqrst19mooncassette_2ddemo4main26rate__limited__interaction()])), undefined);
+  return _M0FP38weopqrst12mooncassette5codec6encode(_M0MP38weopqrst12mooncassette4core8Cassette3new("demo", _M0FP38weopqrst19mooncassette_2ddemo4main12sample__textN6constrS345, new _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11InteractionEE4Some([_M0FP38weopqrst19mooncassette_2ddemo4main18plain__interaction("确定性回放指的是：不重新调用模型，只按录制好的响应逐字节重演。"), _M0FP38weopqrst19mooncassette_2ddemo4main22streaming__interaction("结论：它把外部依赖变成可离线运行的测试"), _M0FP38weopqrst19mooncassette_2ddemo4main26rate__limited__interaction()])), undefined);
 }
 function _M0FP38weopqrst19mooncassette_2ddemo4main17miss__query__text() {
   const _bind = [];
@@ -8019,10 +8025,10 @@ function _M0FP38weopqrst19mooncassette_2ddemo4main11leaky__text() {
   _M0MPB3Map3setGsRPB4JsonE(answer, "access_token", new _M0DTPB4Json6String(_p$5));
   const _p$6 = "已查询，安全字段会保留。";
   _M0MPB3Map3setGsRPB4JsonE(answer, "content", new _M0DTPB4Json6String(_p$6));
-  return _M0FP38weopqrst12mooncassette5codec6encode(_M0MP38weopqrst12mooncassette4core8Cassette3new("leaky", _M0FP38weopqrst19mooncassette_2ddemo4main11leaky__textN6constrS330, new _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11InteractionEE4Some([_M0MP38weopqrst12mooncassette4core11Interaction3new(_M0MP38weopqrst12mooncassette4core7Request3new("openai", "gpt-4o", new _M0DTPB4Json6Object(body)), _M0MP38weopqrst12mooncassette4core8Response2ok(new _M0DTPB4Json6Object(answer), undefined, _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11StreamFrameEE4None__))])), undefined);
+  return _M0FP38weopqrst12mooncassette5codec6encode(_M0MP38weopqrst12mooncassette4core8Cassette3new("leaky", _M0FP38weopqrst19mooncassette_2ddemo4main11leaky__textN6constrS346, new _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11InteractionEE4Some([_M0MP38weopqrst12mooncassette4core11Interaction3new(_M0MP38weopqrst12mooncassette4core7Request3new("openai", "gpt-4o", new _M0DTPB4Json6Object(body)), _M0MP38weopqrst12mooncassette4core8Response2ok(new _M0DTPB4Json6Object(answer), undefined, _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11StreamFrameEE4None__))])), undefined);
 }
 function _M0FP38weopqrst19mooncassette_2ddemo4main13drifted__text() {
-  return _M0FP38weopqrst12mooncassette5codec6encode(_M0MP38weopqrst12mooncassette4core8Cassette3new("demo", _M0FP38weopqrst19mooncassette_2ddemo4main13drifted__textN6constrS331, new _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11InteractionEE4Some([_M0FP38weopqrst19mooncassette_2ddemo4main18plain__interaction("确定性回放指的是：不重新调用模型，只按录制好的响应逐字节重演。"), _M0FP38weopqrst19mooncassette_2ddemo4main22streaming__interaction("结论：它把外部依赖变成了可离线运行、且可复现的测试"), _M0FP38weopqrst19mooncassette_2ddemo4main26rate__limited__interaction()])), undefined);
+  return _M0FP38weopqrst12mooncassette5codec6encode(_M0MP38weopqrst12mooncassette4core8Cassette3new("demo", _M0FP38weopqrst19mooncassette_2ddemo4main13drifted__textN6constrS347, new _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11InteractionEE4Some([_M0FP38weopqrst19mooncassette_2ddemo4main18plain__interaction("确定性回放指的是：不重新调用模型，只按录制好的响应逐字节重演。"), _M0FP38weopqrst19mooncassette_2ddemo4main22streaming__interaction("结论：它把外部依赖变成了可离线运行、且可复现的测试"), _M0FP38weopqrst19mooncassette_2ddemo4main26rate__limited__interaction()])), undefined);
 }
 function _M0FP38weopqrst19mooncassette_2ddemo4main12escape__html(text) {
   const out = _M0MPB13StringBuilder21StringBuilder_2einner(0);
@@ -8242,7 +8248,7 @@ function _M0FP38weopqrst19mooncassette_2ddemo4main16render__diagnose(state) {
   }
   const policy = state.body_only ? new _M0DTP38weopqrst12mooncassette7matcher11MatchPolicy6Subset(["messages"]) : _M0DTP38weopqrst12mooncassette7matcher11MatchPolicy5Exact__;
   const _bind$3 = loaded.cassette.interactions;
-  const diagnosis = _M0FP38weopqrst12mooncassette7matcher8diagnose(request, new _M0TPB9ArrayViewGRP38weopqrst12mooncassette4core11InteractionE(_bind$3, 0, _bind$3.length), policy, 0, _M0FP38weopqrst19mooncassette_2ddemo4main16render__diagnoseN6constrS332);
+  const diagnosis = _M0FP38weopqrst12mooncassette7matcher8diagnose(request, new _M0TPB9ArrayViewGRP38weopqrst12mooncassette4core11InteractionE(_bind$3, 0, _bind$3.length), policy, 0, _M0FP38weopqrst19mooncassette_2ddemo4main16render__diagnoseN6constrS348);
   const out = _M0MPB13StringBuilder21StringBuilder_2einner(0);
   _M0IPB13StringBuilderPB6Logger13write__string(out, "<h2>未命中诊断</h2><p class=\"meta\">对 <code>");
   _M0IPB13StringBuilderPB6Logger13write__string(out, _M0FP38weopqrst19mooncassette_2ddemo4main12escape__html(loaded.label));
@@ -8440,12 +8446,62 @@ function _M0FP38weopqrst19mooncassette_2ddemo4main11render__app(state) {
 function _M0FP38weopqrst19mooncassette_2ddemo4main9set__html(element_id, html) {
   _M0FP38weopqrst19mooncassette_2ddemo4main14set__html__ffi(element_id, html);
 }
+function _M0FP38weopqrst19mooncassette_2ddemo4main19set__location__hash(value) {
+  _M0FP38weopqrst19mooncassette_2ddemo4main24set__location__hash__ffi(value);
+}
 function _M0FP38weopqrst19mooncassette_2ddemo4main12set__visible(element_id, visible) {
   _M0FP38weopqrst19mooncassette_2ddemo4main17set__visible__ffi(element_id, visible);
 }
 function _M0FP38weopqrst19mooncassette_2ddemo4main11render__all(state) {
   _M0FP38weopqrst19mooncassette_2ddemo4main9set__html("app", _M0FP38weopqrst19mooncassette_2ddemo4main11render__app(state));
   _M0FP38weopqrst19mooncassette_2ddemo4main12set__visible("diagnose-controls", _M0IP38weopqrst19mooncassette_2ddemo4main4ViewPB2Eq5equal(state.view, 3));
+  _M0FP38weopqrst19mooncassette_2ddemo4main19set__location__hash(_M0MP38weopqrst19mooncassette_2ddemo4main4View4name(state.view));
+}
+function _M0FP38weopqrst19mooncassette_2ddemo4main14ensure__sample(state) {
+  const _bind = state.primary_tape;
+  if (_bind === undefined) {
+    _M0MP38weopqrst19mooncassette_2ddemo4main8AppState13load__primary(state, "自带样例", _M0FP38weopqrst19mooncassette_2ddemo4main12sample__text());
+    return;
+  } else {
+    return;
+  }
+}
+function _M0FP38weopqrst19mooncassette_2ddemo4main11apply__hash(state, hash) {
+  switch (hash) {
+    case "": {
+      return;
+    }
+    case "overview": {
+      _M0FP38weopqrst19mooncassette_2ddemo4main14ensure__sample(state);
+      state.view = 0;
+      return;
+    }
+    case "detail": {
+      _M0FP38weopqrst19mooncassette_2ddemo4main14ensure__sample(state);
+      state.detail = _M0FP38weopqrst19mooncassette_2ddemo4main11apply__hashN6constrS349;
+      state.view = 1;
+      return;
+    }
+    case "diagnose": {
+      _M0FP38weopqrst19mooncassette_2ddemo4main14ensure__sample(state);
+      state.view = 3;
+      return;
+    }
+    case "drift": {
+      _M0FP38weopqrst19mooncassette_2ddemo4main14ensure__sample(state);
+      _M0MP38weopqrst19mooncassette_2ddemo4main8AppState16load__comparison(state, "漂移样例（模型换了版本）", _M0FP38weopqrst19mooncassette_2ddemo4main13drifted__text());
+      state.view = 2;
+      return;
+    }
+    case "sanitize": {
+      _M0MP38weopqrst19mooncassette_2ddemo4main8AppState13load__primary(state, "含密钥的样例（模拟未脱敏的文件）", _M0FP38weopqrst19mooncassette_2ddemo4main11leaky__text());
+      state.view = 4;
+      return;
+    }
+    default: {
+      return;
+    }
+  }
 }
 function _M0FP38weopqrst19mooncassette_2ddemo4main6handle(state, action, arg) {
   switch (action) {
@@ -8506,6 +8562,9 @@ function _M0FP38weopqrst19mooncassette_2ddemo4main6handle(state, action, arg) {
     }
   }
 }
+function _M0FP38weopqrst19mooncassette_2ddemo4main14location__hash() {
+  return _M0FP38weopqrst19mooncassette_2ddemo4main19location__hash__ffi();
+}
 function _M0FP38weopqrst19mooncassette_2ddemo4main20on__delegated__click(container_id, handler) {
   _M0FP38weopqrst19mooncassette_2ddemo4main25on__delegated__click__ffi(container_id, handler);
 }
@@ -8537,5 +8596,6 @@ function _M0FP38weopqrst19mooncassette_2ddemo4main15on__text__input(element_id, 
   _M0MP38weopqrst19mooncassette_2ddemo4main8AppState13load__primary(state, "自带样例", _M0FP38weopqrst19mooncassette_2ddemo4main12sample__text());
   state.query = _M0FP38weopqrst19mooncassette_2ddemo4main17miss__query__text();
   state.status = `${state.status}　试试上面的三个样例按钮。`;
+  _M0FP38weopqrst19mooncassette_2ddemo4main11apply__hash(state, _M0FP38weopqrst19mooncassette_2ddemo4main14location__hash());
   _M0FP38weopqrst19mooncassette_2ddemo4main11render__all(state);
 })();

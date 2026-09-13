@@ -145,6 +145,36 @@ test "the drift view needs two recordings and says so" {
 }
 
 ///|
+test "a link can open a view directly" {
+  // 一个「只能靠手点才能到达」的页面，没法分享、没法做自动化截图。
+  // 需要样例的视图要顺手把样例装上，而不是先给一个空壳。
+  let state = AppState::new()
+  apply_hash(state, "drift")
+  assert_true(state.view == View::Drift)
+  assert_false(render_app(state).contains("只有一份录制"))
+  assert_true(render_app(state).contains("Changed"))
+}
+
+///|
+test "an unknown fragment is ignored instead of breaking the page" {
+  let state = AppState::new()
+  apply_hash(state, "nonsense")
+  assert_true(state.view == View::Overview)
+  assert_true(render_app(state).contains("还没有载入录制"))
+}
+
+///|
+test "returning to #overview keeps whatever the user loaded" {
+  // `ensure_sample` 只在没有主录制时才装样例，否则用链接回概览会把用户
+  // 自己载入的文件顶掉 —— 那是一种很糟的体验。
+  let state = AppState::new()
+  state.load_primary("我的录制", leaky_text())
+  apply_hash(state, "overview")
+  assert_true(render_app(state).contains("我的录制"))
+  assert_false(render_app(state).contains("自带样例"))
+}
+
+///|
 test "identical recordings report no drift" {
   let state = AppState::new()
   state.load_primary("自带样例", sample_text())

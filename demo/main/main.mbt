@@ -9,6 +9,54 @@ fn render_all(state : AppState) -> Unit {
   // 诊断输入框留在静态 HTML 里、不参与重渲染：整块替换会把光标顶回开头，
   // 边打字边重渲染等于没法输入。这里只控制它出现与否。
   set_visible("diagnose-controls", state.view == Diagnose)
+  // 让地址栏始终反映当前视图。这不是装饰：一个「只能靠手点才能到达」的页面，
+  // 没法分享、没法做自动化截图，也没法在回归里指定要看哪一屏。
+  set_location_hash(state.view.name())
+}
+
+///|
+/// 从 URL 的 hash 恢复初始状态，使视图可以直接链接。
+///
+/// 需要样例的视图会顺手把样例装上，因此 `#drift` 打开就是「两份录制对比」，
+/// `#sanitize` 打开就是脱敏预览 —— 而不是先给一个「只有一份录制」的空壳。
+fn apply_hash(state : AppState, hash : String) -> Unit {
+  match hash {
+    "" => ()
+    "overview" => {
+      ensure_sample(state)
+      state.view = Overview
+    }
+    "detail" => {
+      ensure_sample(state)
+      state.detail = Some(0)
+      state.view = Detail
+    }
+    "diagnose" => {
+      ensure_sample(state)
+      state.view = Diagnose
+    }
+    "drift" => {
+      ensure_sample(state)
+      state.load_comparison("漂移样例（模型换了版本）", drifted_text())
+      state.view = Drift
+    }
+    "sanitize" => {
+      state.load_primary("含密钥的样例（模拟未脱敏的文件）", leaky_text())
+      state.view = Sanitize
+    }
+    _ => ()
+  }
+}
+
+///|
+/// 装上自带样例 —— 但只在还没有主录制时装。
+///
+/// 否则用链接回到 `#overview` 会把用户自己载入的文件顶掉，那是很糟的体验。
+fn ensure_sample(state : AppState) -> Unit {
+  match state.primary() {
+    Some(_) => ()
+    None => state.load_primary("自带样例", sample_text())
+  }
 }
 
 ///|
@@ -91,5 +139,7 @@ fn main {
   state.load_primary("自带样例", sample_text())
   state.query = miss_query_text()
   state.status = state.status + "　试试上面的三个样例按钮。"
+  // 允许用链接直接打开某个视图（`#drift` / `#sanitize` / …）。
+  apply_hash(state, location_hash())
   render_all(state)
 }

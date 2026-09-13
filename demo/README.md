@@ -5,6 +5,23 @@
 
 **在线版本**：<https://mihujiang.github.io/mooncassette/>
 
+概览（一份录制里有什么，三种形态一眼可分）：
+
+![概览](screenshots/overview.png)
+
+漂移对比（两份录制之间，哪一条是「请求没变、响应变了」）：
+
+![漂移对比](screenshots/drift.png)
+
+截图直接用系统自带的浏览器无头模式产出，不需要额外安装任何东西：
+
+```bash
+# 注意 URL 里的 #drift —— 视图可以直接链接，因此每个视图都能被脚本截图
+msedge --headless=new --disable-gpu --hide-scrollbars --window-size=1400,900 \
+  --virtual-time-budget=6000 --screenshot=docs/screenshots/drift.png \
+  "file:///<绝对路径>/docs/index.html#drift"
+```
+
 ## 它是一个独立模块
 
 这里自带 `moon.mod`，用 `moon add weopqrst/mooncassette@0.4.0` 引入本库，而不是

@@ -7,6 +7,12 @@
 
 **Deterministic record-and-replay for LLM interactions — make model calls offline, reproducible and regression-testable.**
 
+![The browser playground: two recordings side by side, highlighting the interaction whose response changed](https://raw.githubusercontent.com/mihujiang/mooncassette/main/docs/screenshots/drift.png)
+
+*That is the [playground](https://mihujiang.github.io/mooncassette/) in a browser: load two
+recordings and see at a glance which interaction changed behaviour. All computation happens in the
+browser; no network request is made.*
+
 `mooncassette` records one real LLM interaction into a readable, diffable cassette file.
 Afterwards — in CI, on a colleague's machine, or on a plane without network — tests replay
 **byte-identical** results.

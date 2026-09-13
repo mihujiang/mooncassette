@@ -7,6 +7,11 @@
 
 **给 LLM 应用做确定性录制与回放 —— 让「调用大模型」这件事变得可以离线、可以复现、可以回归。**
 
+![浏览器里的 playground：并排两份录制，突出显示「请求没变、响应变了」的那一条](https://raw.githubusercontent.com/mihujiang/mooncassette/main/docs/screenshots/drift.png)
+
+*这是浏览器里的 [playground](https://mihujiang.github.io/mooncassette/)：载入两份录制，
+一眼看出哪一条的行为变了。全部计算在浏览器内完成，不发任何网络请求。*
+
 `mooncassette` 记录一次真实的 LLM 交互，把它落成一个可读、可 diff 的
 cassette 文件；之后无论在 CI、在同事的电脑上、还是在没有网络的飞机上，
 测试都会回放出**逐字节一致**的结果。

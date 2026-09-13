@@ -479,7 +479,7 @@ moon check --target js
 moon fmt && moon info
 ```
 
-**All 213 tests pass**, covering twelve packages, each run on both `wasm-gc` and `js`. The point is not
+**All 253 tests pass**, covering twelve packages, each run on both `wasm-gc` and `js`. The point is not
 the line count but that **every invariant above has a matching assertion**:
 
 - FNV-1a is verified against the official vectors (empty string / `"a"` / `"foobar"`);
@@ -534,7 +534,18 @@ the line count but that **every invariant above has a matching assertion**:
   lexicographic — it compares length first), pinned by a test that distinguishes the two rules;
 - cost: integer arithmetic with a fixed rounding direction, so the same input always yields the
   same amount; an unknown model reports "unknown" rather than zero;
-- cost: `tokens × price` uses `Int64` (MoonBit's `Int` is 32-bit, and 32 bits overflow silently).
+- cost: `tokens × price` uses `Int64` (MoonBit's `Int` is 32-bit, and 32 bits overflow silently);
+- **adversarial matrix**: tampering with **every** field of a cassette must be detected, with the
+  error naming the path; `meta` and `version` are pinned as fields that must **not** raise —
+  crying wolf teaches people to ignore warnings, which is worse than staying quiet;
+- **sanitization property test**: 300 deterministic random structures with a secret planted at a
+  random depth in one of three wrappings; the serialized result must never contain it. Also checks
+  that sanitizing is idempotent and that `max_tokens` / `total_tokens` are not damaged;
+- **parser fuzzing**: an adversarial corpus plus 600 random inputs without crashing, and
+  `render ∘ parse` is idempotent;
+- **shape matrix**: with/without usage, with/without frames, empty containers, non-ASCII, control
+  characters, status 0, and the order of 20 interactions — all round-trip stably, asserting
+  byte-equality of the re-encoded text.
 
 ---
 

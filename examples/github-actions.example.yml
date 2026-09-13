@@ -1,0 +1,48 @@
+# 在**你的项目**里离线回归 LLM 调用。
+#
+# 用法：把本文件复制到你的仓库的 `.github/workflows/` 下即可（改个名字无所谓）。
+#
+# 前提只有两条：
+#   1. `moon.pkg` 里已经引用 `weopqrst/mooncassette`（或它的子包）；
+#   2. 开发时用 `Auto` 模式跑过一遍，`tests/cassettes/` 下的录制文件已提交进仓库。
+#
+# 全程不需要 API Key，也不需要网络 —— 这正是录制回放存在的意义：
+# 把「依赖外部服务的测试」变成「纯函数式的离线测试」。
+
+name: llm-regression
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: Fetch dependencies
+        run: moon update
+
+      # 这一步就是全部：测试里的 LLM 调用全部走回放。
+      #
+      # 注意这里**没有**配置 OPENAI_API_KEY 之类的变量：如果哪条路径偷偷发起了
+      # 真实调用，它一定会失败 —— 回放会话在构造上不持有 Transport。
+      - name: Replay recorded LLM interactions
+        run: moon test --target js
+
+      # 交叉验证：规范文本与指纹必须与后端无关，因此在第二个后端上重跑同一套测试。
+      # 同一份 cassette 在两个后端下必须给出逐字节相同的结果。
+      - name: Replay on a second backend
+        run: moon test --target wasm-gc
+
+      # 可选：把未命中时的诊断打进运行摘要，便于在网页上直接看到差在哪个字段。
+      # 需要你在仓库里放一个把 `Session::diagnose` 输出打出来的测试或小工具。
+      # - name: Miss diagnostics
+      #   run: moon run tools/diagnose --target js

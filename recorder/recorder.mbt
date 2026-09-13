@@ -393,8 +393,12 @@ pub fn Session::set_mode(self : Session, mode : Mode) -> Unit {
 ///
 /// 这里刻意**不**做脱敏：真实 Transport 收到的是「保留密钥」的请求，
 /// Mock 必须与真实行为一致，否则会掩盖脱敏相关问题。
+///
+/// 同一请求可以登记**多个**响应：按登记顺序依次给出，用完重复最后一个
+/// （取值策略见 `@core.ScriptedReplies`）。这让「先 429、重试后 200」这类
+/// 序列可以被离线回归，而不只是测到「最终成功」。
 pub struct MockTransport {
-  scripted : Map[String, @core.Response]
+  scripted : Map[String, @core.ScriptedReplies[@core.Response]]
   mut calls : Int
 }
 
@@ -406,12 +410,48 @@ pub fn MockTransport::new() -> MockTransport {
 
 ///|
 /// 为某个请求登记响应。
+///
+/// 对同一请求重复调用会**追加**到该请求的应答序列末尾，而不是覆盖。
 pub fn MockTransport::on(
   self : MockTransport,
   request : @core.Request,
   response : @core.Response,
 ) -> Unit {
-  self.scripted.set(@fingerprint.fingerprint(request.normalize()), response)
+  self.sequence_for(request).push(response)
+}
+
+///|
+/// 为某个请求登记一串响应，按顺序依次给出。
+///
+/// 用于「重试后成功」这类序列，例如 `[429 的响应, 200 的响应]`。
+pub fn MockTransport::on_sequence(
+  self : MockTransport,
+  request : @core.Request,
+  responses : Array[@core.Response],
+) -> Unit {
+  let sequence = self.sequence_for(request)
+  for response in responses {
+    sequence.push(response)
+  }
+}
+
+///|
+/// 取（必要时新建）某个请求的应答序列。
+fn MockTransport::sequence_for(
+  self : MockTransport,
+  request : @core.Request,
+) -> @core.ScriptedReplies[@core.Response] {
+  let key = @fingerprint.fingerprint(request.normalize())
+  match self.scripted.get(key) {
+    Some(sequence) => sequence
+    None => {
+      let fresh : @core.ScriptedReplies[@core.Response] = @core.ScriptedReplies::new(
+        [],
+      )
+      self.scripted.set(key, fresh)
+      fresh
+    }
+  }
 }
 
 ///|
@@ -424,7 +464,11 @@ pub fn MockTransport::call_count(self : MockTransport) -> Int {
 pub impl Transport for MockTransport with fn send(self, request) {
   self.calls = self.calls + 1
   let key = @fingerprint.fingerprint(request.normalize())
-  match self.scripted.get(key) {
+  let played = match self.scripted.get(key) {
+    Some(sequence) => sequence.take()
+    None => None
+  }
+  match played {
     Some(response) => response
     None => {
       let body : Map[String, Json] = Map([])

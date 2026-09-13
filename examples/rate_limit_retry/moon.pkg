@@ -1,0 +1,16 @@
+// mooncassette 限流重试示例。
+//
+// 纯计算，可在全部后端编译。
+import {
+  "moonbitlang/core/json",
+  "moonbitlang/x/fs",
+  "weopqrst/mooncassette",
+  "weopqrst/mooncassette/canon",
+  "weopqrst/mooncassette/codec",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/matcher",
+  "weopqrst/mooncassette/providers",
+  "weopqrst/mooncassette/recorder",
+}
+
+pkgtype(kind: "executable")

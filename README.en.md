@@ -226,6 +226,86 @@ from any context. If your client is synchronous, `FunctionSender` above is less 
 
 ---
 
+## CI integration
+
+The only thing CI has to do is **run the tests** — replay needs no network.
+
+Three steps:
+
+1. **Record while developing.** Run once in `Auto` mode (replay on a hit, make the real call
+   and store it on a miss), then commit the files under `tests/cassettes/`.
+2. **Replay in your tests.** Loading a cassette **verifies integrity automatically**, so there is
+   no extra check step to add.
+3. **`moon test` in CI.** No API key, no network access.
+
+A suggested layout (a suggestion only — the code can put files anywhere):
+
+```text
+tests/
+  cassettes/
+    chat.cassette.json
+    streaming.cassette.json
+```
+
+A ready-to-copy workflow lives in
+[`examples/github-actions.example.yml`](https://github.com/mihujiang/mooncassette/blob/main/examples/github-actions.example.yml).
+The core of it is two steps:
+
+```yaml
+- name: Set up MoonBit
+  run: |
+    curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+    echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+- name: Replay recorded LLM interactions (no network, no API key)
+  run: moon test --target js
+```
+
+The test side looks roughly like this:
+
+```moonbit nocheck
+///|
+test "chat completes without a network" {
+  let text = @fs.read_file_to_string("tests/cassettes/chat.json")
+  let session = @mooncassette.replay_session(text)
+  let response = session.send(my_request()) catch {
+    error => fail("replay failed: " + error.to_string())
+  }
+  assert_eq(response.status, 200)
+}
+```
+
+Three things worth knowing:
+
+- **Tampering is caught at load time.** A cassette carries two digests (the request fingerprint
+  and the digest of the whole record); edit any field by hand and `replay_session` fails during
+  decoding and names the path. There is no extra check to add, and therefore no check to forget.
+- **"No key" is provable.** Configure no API key in CI and the tests still pass; conversely, if
+  any path tried to make a real call it would necessarily fail — a replay session does not hold a
+  `Transport` by construction.
+- **Drift detection is a separate step.** To answer "did behaviour change when the model version
+  changed?", a small test is enough:
+
+```moonbit nocheck
+///|
+test "no behavioural drift since the recording was accepted" {
+  let old = @codec.decode(@fs.read_file_to_string("tests/cassettes/chat.json"))
+  let fresh = @codec.decode(@fs.read_file_to_string("tests/cassettes/chat.new.json"))
+  let report = @mooncassette.compare_recordings(old, fresh)
+  if !report.is_clean() {
+    fail("drift detected: " + report.summary())
+  }
+}
+```
+
+**Retry-then-succeed paths can be replayed offline too**: the same request can be scripted with a
+sequence of replies — see
+[`examples/rate_limit_retry`](https://github.com/mihujiang/mooncassette/tree/main/examples/rate_limit_retry).
+If only the final success is recorded, a retry loop that retries one time too few, one time too
+many, or retries an error it should not, still shows green.
+
+---
+
 ## Concepts
 
 ### cassette
@@ -479,7 +559,7 @@ moon check --target js
 moon fmt && moon info
 ```
 
-**All 253 tests pass**, covering twelve packages, each run on both `wasm-gc` and `js`. The point is not
+**All 282 tests pass**, covering twelve packages, each run on both `wasm-gc` and `js`. The point is not
 the line count but that **every invariant above has a matching assertion**:
 
 - FNV-1a is verified against the official vectors (empty string / `"a"` / `"foobar"`);
@@ -545,7 +625,13 @@ the line count but that **every invariant above has a matching assertion**:
   `render ∘ parse` is idempotent;
 - **shape matrix**: with/without usage, with/without frames, empty containers, non-ASCII, control
   characters, status 0, and the order of 20 interactions — all round-trip stably, asserting
-  byte-equality of the re-encoded text.
+  byte-equality of the re-encoded text;
+- scripted reply sequences: the same request is answered in registration order, and the last reply
+  repeats once the sequence is spent; `on` **appends** rather than overwrites (overwriting silently
+  drops the earlier reply, which is exactly the trap a retry sequence falls into);
+- retry paths: a 429 → 200 sequence replays offline, with no network call during replay;
+- when calls outnumber recordings, the ring policy reuses the earliest entry while the sequential
+  policy raises `Exhausted` — both behaviours are pinned by tests.
 
 ---
 

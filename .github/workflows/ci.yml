@@ -143,3 +143,8 @@ jobs:
       # 协议路径：真实 provider 报文形状 → 录制 → 离线回放。
       - name: Run the protocol demo
         run: moon run examples/openai_protocol --target js
+
+      # 限流重试：同一请求的应答序列（429 → 200）离线复现 —— 只录「最终成功」
+      # 的话，重试逻辑写错了不会被发现。示例同时演示环形与顺序策略的差别。
+      - name: Run the retry demo
+        run: moon run examples/rate_limit_retry --target js

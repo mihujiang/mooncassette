@@ -1,0 +1,84 @@
+{
+  "format": "mooncassette",
+  "interactions": [
+    {
+      "fingerprint": "fnv1a64:51ef5d18707009a1",
+      "integrity": "fnv1a64:b9ed32106f9d71f1",
+      "request": {
+        "body": {
+          "messages": [
+            {
+              "content": "你好，请介绍一下自己",
+              "role": "user"
+            }
+          ],
+          "model": "gpt-4o"
+        },
+        "model": "gpt-4o",
+        "provider": "openai"
+      },
+      "response": {
+        "body": {
+          "error": {
+            "code": "rate_limit_exceeded",
+            "message": "Rate limit reached for gpt-4o on requests per min (RPM): Limit 3, Used 3, Requested 1.",
+            "param": null,
+            "type": "rate_limit_error"
+          }
+        },
+        "status": 429
+      }
+    },
+    {
+      "fingerprint": "fnv1a64:51ef5d18707009a1",
+      "integrity": "fnv1a64:38afa989cad01708",
+      "request": {
+        "body": {
+          "messages": [
+            {
+              "content": "你好，请介绍一下自己",
+              "role": "user"
+            }
+          ],
+          "model": "gpt-4o"
+        },
+        "model": "gpt-4o",
+        "provider": "openai"
+      },
+      "response": {
+        "body": {
+          "choices": [
+            {
+              "finish_reason": "stop",
+              "index": 0,
+              "message": {
+                "content": "你好！我是月兔助手。",
+                "role": "assistant"
+              }
+            }
+          ],
+          "created": 1677652288,
+          "id": "chatcmpl-retry",
+          "model": "gpt-4o",
+          "object": "chat.completion",
+          "usage": {
+            "completion_tokens": 5,
+            "prompt_tokens": 9,
+            "total_tokens": 14
+          }
+        },
+        "status": 200,
+        "usage": {
+          "input_tokens": 9,
+          "output_tokens": 5
+        }
+      }
+    }
+  ],
+  "meta": {
+    "generator": "mooncassette/0.4.0",
+    "name": "rate-limit-retry",
+    "recorded_at": "2026-09-13T12:00:00Z"
+  },
+  "version": 2
+}

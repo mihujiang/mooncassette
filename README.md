@@ -220,6 +220,82 @@ let response = match session.try_replay(request) {
 
 ---
 
+## 接入 CI
+
+CI 里唯一要做的事就是**跑测试** —— 因为回放不需要网络。
+
+三步：
+
+1. **开发时录制。** 用 `Auto` 模式跑一遍（命中就回放，未命中就真实调用并记下），
+   把 `tests/cassettes/` 下的文件提交进仓库；
+2. **测试里回放。** 加载 cassette 时**自动完成完整性校验**，不需要额外的检查步骤；
+3. **CI 里 `moon test`。** 不需要 API Key，也不访问网络。
+
+建议的目录约定（只是建议，代码里怎么写都行）：
+
+```text
+tests/
+  cassettes/
+    chat.cassette.json
+    streaming.cassette.json
+```
+
+可直接抄走的 workflow 见
+[`examples/github-actions.example.yml`](https://github.com/mihujiang/mooncassette/blob/main/examples/github-actions.example.yml)，
+核心只有两步：
+
+```yaml
+- name: Set up MoonBit
+  run: |
+    curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+    echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+- name: Replay recorded LLM interactions (no network, no API key)
+  run: moon test --target js
+```
+
+测试侧大概是这样：
+
+```moonbit nocheck
+///|
+test "chat completes without a network" {
+  let text = @fs.read_file_to_string("tests/cassettes/chat.json")
+  let session = @mooncassette.replay_session(text)
+  let response = session.send(my_request()) catch {
+    error => fail("replay failed: " + error.to_string())
+  }
+  assert_eq(response.status, 200)
+}
+```
+
+三点值得知道：
+
+- **篡改会被挡在加载这一步。** cassette 里存了两个摘要（请求指纹 + 整条记录的摘要），
+  手工改动任何一个字段，`replay_session` 就会在解码时报错并指出路径。你不需要为此
+  写额外的校验步骤，也就不存在「忘了校验」这回事。
+- **「没有密钥」这件事是可以被证明的。** CI 里不配置任何 API Key，测试照样全绿；
+  反过来，若有哪条路径偷偷发起真实调用，它必然失败 —— 回放会话在构造上不持有
+  `Transport`。
+- **漂移检测是独立的一步。** 想知道「换了模型版本之后行为是否变了」，写一个小测试即可：
+
+```moonbit nocheck
+///|
+test "no behavioural drift since the recording was accepted" {
+  let old = @codec.decode(@fs.read_file_to_string("tests/cassettes/chat.json"))
+  let fresh = @codec.decode(@fs.read_file_to_string("tests/cassettes/chat.new.json"))
+  let report = @mooncassette.compare_recordings(old, fresh)
+  if !report.is_clean() {
+    fail("drift detected: " + report.summary())
+  }
+}
+```
+
+**「重试后成功」这类路径同样能离线回归**：同一请求可以登记一串应答，
+见 [`examples/rate_limit_retry`](https://github.com/mihujiang/mooncassette/tree/main/examples/rate_limit_retry)。
+只录「最终成功」的话，重试逻辑少一次、多一次、或对不该重试的错误重试，测试都不会变红。
+
+---
+
 ## 概念
 
 ### cassette
@@ -456,7 +532,7 @@ moon check --target js
 moon fmt && moon info
 ```
 
-当前 **253 个测试全部通过**，覆盖十二个包，且在 `wasm-gc` 与 `js` 两个目标上各跑一遍。
+当前 **282 个测试全部通过**，覆盖十二个包，且在 `wasm-gc` 与 `js` 两个目标上各跑一遍。
 测试的重点不是行数，而是**每条不变量都有对应断言**，例如：
 
 - FNV-1a 用官方测试向量校验（空串 / `"a"` / `"foobar"`）；
@@ -498,7 +574,11 @@ moon fmt && moon info
   断言序列化结果中永不出现；另验证脱敏幂等、`max_tokens` / `total_tokens` 不被误伤；
 - **解析器模糊测试**：对抗语料 + 600 组随机输入不崩，且 `render ∘ parse` 幂等；
 - **形状矩阵**：有无 usage、有无帧、空容器、非 ASCII、控制字符、状态码 0、
-  以及 20 条记录的顺序，全部稳定往返（断言的是再编码后的**字节**相等）。
+  以及 20 条记录的顺序，全部稳定往返（断言的是再编码后的**字节**相等）；
+- 脚本化应答序列：同一请求按注册顺序依次给出、用完重复最后一个；`on` 是**追加**而不是覆盖
+  （覆盖语义会在「我只想再补一条」时悄悄丢掉先前那条，正是重试序列最容易踩的坑）；
+- 重试路径：429 → 200 的序列可以离线复现，且回放阶段一次网络调用都不发生；
+- 调用次数超出录制条数时，环形策略复用最早一条、顺序策略抛 `Exhausted` —— 两种行为都被钉住。
 
 ---
 

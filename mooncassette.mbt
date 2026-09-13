@@ -8,10 +8,18 @@
 ///
 /// 这是最安全的入口：不会发起任何真实调用，未命中即报错。
 /// 适合在 CI 与单元测试中使用。
+///
+/// 参数是 cassette 的 **JSON 文本**（不是文件路径）。读取文件由调用方完成，
+/// 因为本库刻意不依赖 `fs`：任何后端（含浏览器）都能用同一套 API。
+///
+/// ```text
+/// let text = @fs.read_file_to_string("tests/cassettes/chat.json")
+/// let session = @mooncassette.replay_session(text)
+/// ```
 pub fn replay_session(
-  location : StringView,
+  text : StringView,
 ) -> @recorder.Session raise @core.CassetteError {
-  let cassette = @codec.decode(location)
+  let cassette = @codec.decode(text)
   @recorder.Session::new(cassette, mode=@recorder.Mode::Playback)
 }
 

@@ -75,8 +75,12 @@ pub(open) trait HttpSender {
 ///
 /// 未登记的请求返回 500，使「本不该发生的真实调用」在测试中立刻
 /// 表现为可断言的失败，而不是静默通过。
+///
+/// 同一请求可以登记**多个**响应：按登记顺序依次给出，用完重复最后一个
+/// （取值策略见 `@core.ScriptedReplies`）。这让「先 429、重试后 200」这类
+/// 序列可以被离线回归，而不只是测到「最终成功」。
 pub struct ScriptedHttpSender {
-  scripted : Map[String, HttpResponse]
+  scripted : Map[String, @core.ScriptedReplies[HttpResponse]]
   mut calls : Int
 }
 
@@ -87,13 +91,49 @@ pub fn ScriptedHttpSender::new() -> ScriptedHttpSender {
 }
 
 ///|
-/// 为某个 HTTP 请求登记响应。
+/// 为某个 HTTP 请求登记一个响应。
+///
+/// 对同一请求重复调用会**追加**到该请求的应答序列末尾，而不是覆盖。
 pub fn ScriptedHttpSender::on(
   self : ScriptedHttpSender,
   request : HttpRequest,
   response : HttpResponse,
 ) -> Unit {
-  self.scripted.set(request.to_key(), response)
+  self.sequence_for(request).push(response)
+}
+
+///|
+/// 为某个 HTTP 请求登记一串响应，按顺序依次给出。
+///
+/// 用于「重试后成功」这类序列，例如 `[429, 200]`。
+pub fn ScriptedHttpSender::on_sequence(
+  self : ScriptedHttpSender,
+  request : HttpRequest,
+  responses : Array[HttpResponse],
+) -> Unit {
+  let sequence = self.sequence_for(request)
+  for response in responses {
+    sequence.push(response)
+  }
+}
+
+///|
+/// 取（必要时新建）某个请求的应答序列。
+fn ScriptedHttpSender::sequence_for(
+  self : ScriptedHttpSender,
+  request : HttpRequest,
+) -> @core.ScriptedReplies[HttpResponse] {
+  let key = request.to_key()
+  match self.scripted.get(key) {
+    Some(sequence) => sequence
+    None => {
+      let fresh : @core.ScriptedReplies[HttpResponse] = @core.ScriptedReplies::new(
+        [],
+      )
+      self.scripted.set(key, fresh)
+      fresh
+    }
+  }
 }
 
 ///|
@@ -106,7 +146,11 @@ pub fn ScriptedHttpSender::call_count(self : ScriptedHttpSender) -> Int {
 pub impl HttpSender for ScriptedHttpSender with fn send(self, request) {
   self.calls = self.calls + 1
   let key = request.to_key()
-  match self.scripted.get(key) {
+  let played = match self.scripted.get(key) {
+    Some(sequence) => sequence.take()
+    None => None
+  }
+  match played {
     Some(response) => response
     None =>
       HttpResponse::new(

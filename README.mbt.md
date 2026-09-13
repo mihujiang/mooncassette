@@ -220,6 +220,59 @@ let response = match session.try_replay(request) {
 
 ---
 
+## 量化指标
+
+只列**能在仓库里复算**的数字，每项都给出复算方式。
+
+| 指标 | 值 | 复算方式 |
+|---|---|---|
+| 库包 | 12 个（含门面包） | `moon info`，或各目录下的 `pkg.generated.mbti` |
+| 生产代码 | 5,996 行 | 排除 `*_test.mbt` / `*_wbtest.mbt` |
+| 测试代码 | 4,638 行 | 同上两组之和 |
+| 测试 | 291 个，`wasm-gc` 与 `js` 各跑一遍 | `moon test --target wasm-gc` / `--target js` |
+| 对抗性用例 | 篡改 20 条 + 脱敏 300 组随机结构 + 解析器 600 组随机输入 + 形状 12 条 | `codec/tamper_test.mbt`、`sanitize/leak_test.mbt`、`stream/fuzz_test.mbt`、`codec/shape_test.mbt` |
+| 演示模块 | 5 个视图；12 个白盒测试 + 端到端冒烟 | `demo/` |
+
+**规模**（确定性：换一台机器也是这些数）：
+
+- 一条记录约 **815 字节**（紧凑编码）；
+- 紧凑编码比 2 空格缩进省 **46%**；
+- 每条记录的开销从 10 条到 1000 条保持稳定，说明增长是线性的。
+
+**吞吐**（取决于机器与后端，只有同机前后对比才有意义）：
+
+| 操作 | js | wasm-gc |
+|---|---|---|
+| 指纹（1 KB 请求） | 19 µs | 4 µs |
+| 规范文本（1 KB JSON） | 8 µs | 1 µs |
+| 编码（100 条记录） | 7.8 ms | 2.0 ms |
+| 解码 + 完整性校验（100 条记录） | 5.8 ms | 1.9 ms |
+| 匹配未命中（1000 条，带索引） | 22 µs | 9 µs |
+| 会话回放（100 条记录） | 70 µs | 31 µs |
+| SSE 解析（200 帧） | 570 µs | 213 µs |
+
+复算：`moon run examples/benchmarks --target js`（或 `--target wasm-gc`）。
+
+### 精确，而不是估算
+
+成本算的是 **provider 上报的 usage**，不是按字符数折算的估算。没有上报时如实计入
+`no_usage`，既不补零也不猜 —— 「不知道」与「是 0」是两回事。
+
+要检验这句话，拿你自己的真实录制作对照即可：
+
+```bash
+moon run cmd/main --target js -- tokens <你的 cassette.json>
+```
+
+它把上报用量与「4 字符 1 token」的估算并排列出（`mizchi/llm` 的 `estimate_tokens`
+用的就是这条规则，其文档自述为 *rough: ~4 chars per token*）。
+
+**本项目刻意不在文档里给出「差多少倍」的比值**：仓库里的示例 cassette 是构造出来的，
+基于它们算出的比值同样是编的。数字只能来自真实调用，而上面那条命令会在你的数据上
+把它算出来。
+
+---
+
 ## 接入 CI
 
 CI 里唯一要做的事就是**跑测试** —— 因为回放不需要网络。
@@ -501,6 +554,7 @@ mooncassette verify  <cassette.json>                 # 解码 + 完整性校验�
 mooncassette show    <cassette.json>                 # 打印概要（版本、记录数、token、模型）
 mooncassette diff    <old.json> <new.json>           # 报告两次录制之间的漂移，有漂移则退出码 1
 mooncassette cost    <cassette.json> <prices.json>   # 按价目表汇总 token 成本
+mooncassette tokens  <cassette.json>                 # 上报用量与「4 字符 1 token」估算的对照
 mooncassette explain <cassette.json> <request.json>  # 判断请求能否回放，不能则说明差在哪（退出码 1）
 mooncassette help
 ```
@@ -515,6 +569,16 @@ mooncassette help
   以 `_` 开头的键当作注记忽略）。本项目刻意不内置价格——价格变动频繁，内置一张
   会过期的表只会让你拿到「看起来精确、其实已经错了」的数字。汇总里同时给出
   `priced` / `unpriced` / `no_usage` 三个计数，让你看得见这个总额覆盖了多少条记录。
+
+  在仓库里可以直接复算：
+
+  ```bash
+  moon run cmd/main --target js -- cost examples/demo.cassette.json examples/prices.example.json
+  # cost=$0.000210  priced=2  unpriced=0  no_usage=0
+  ```
+
+- `tokens` 把 provider **上报的用量**与「4 字符 1 token」的估算并排列出，用来回答
+  「估算离精确有多远」。详见下面的「精确，而不是估算」。
 - `explain` 回答「这个请求为什么回放不出来」，用的是与库内完全相同的诊断路径，
   因此输出与测试失败时的错误消息一致：
 
@@ -526,6 +590,11 @@ policy=Exact  cursor=0  interactions=1
 
 参数解析刻意**不依赖位置**（不同后端 `@env.args()` 语义不一致），
 而是扫描已知子命令关键字，因此 native 与 js 上行为一致。
+
+**这些命令目前不单独发布成可安装的二进制**，仓库内用
+`moon run cmd/main --target js -- <子命令>` 运行。若你是在自己的项目里使用本库，
+等价能力直接调用库 API（`@codec.decode`、`@drift.compare`、`@recorder.Session::diagnose`）
+即可 —— CLI 的价值是**排查时不必开编译器**，而不是充当唯一的入口。
 
 ---
 

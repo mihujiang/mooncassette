@@ -117,6 +117,27 @@ jobs:
       - name: Cost rollup
         run: moon run cmd/main --target js -- cost examples/demo.cassette.json examples/prices.example.json
 
+      # token 对照：把上报用量与「4 字符 1 token」的估算并排列出。
+      #
+      # 这里跑它是为了让它保持可用。示例 cassette 是构造的，因此输出里的比值本身
+      # 没有意义 —— 有意义的是「这条命令能跑，并且如实标出了自己的来源」。
+      - name: Reported tokens vs heuristic
+        run: |
+          set +e
+          output=$(moon run cmd/main --target js -- tokens examples/demo.cassette.json)
+          code=$?
+          set -e
+          echo "$output"
+          if [ "$code" -ne 0 ]; then
+            echo "::error::the tokens subcommand failed to run"
+            exit 1
+          fi
+          # 免责说明必须随输出一起出现：任何截图或粘贴都应当带上它的前提。
+          if ! echo "$output" | grep -q "本仓库的示例 cassette 是构造的"; then
+            echo "::error::the tokens output lost its caveat"
+            exit 1
+          fi
+
       # 命中情形：示例请求对应 demo 录制里的第一条记录，必须以 0 退出。
       - name: Explain a matching request
         run: moon run cmd/main --target js -- explain examples/demo.cassette.json examples/request.example.json

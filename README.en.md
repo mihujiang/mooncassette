@@ -226,6 +226,60 @@ from any context. If your client is synchronous, `FunctionSender` above is less 
 
 ---
 
+## Quantitative indicators
+
+Only numbers that **can be reproduced inside this repository**, each with the way to reproduce it.
+
+| Indicator | Value | How to reproduce |
+|---|---|---|
+| Library packages | 12 (including the facade) | `moon info`, or `pkg.generated.mbti` in each directory |
+| Production code | 5,996 lines | excluding `*_test.mbt` / `*_wbtest.mbt` |
+| Test code | 4,638 lines | the sum of those two groups |
+| Tests | 291, each run on both `wasm-gc` and `js` | `moon test --target wasm-gc` / `--target js` |
+| Adversarial cases | 20 tampering + 300 random sanitizer structures + 600 random parser inputs + 12 shapes | `codec/tamper_test.mbt`, `sanitize/leak_test.mbt`, `stream/fuzz_test.mbt`, `codec/shape_test.mbt` |
+| Demo module | 5 views; 12 white-box tests + an end-to-end smoke test | `demo/` |
+
+**Size** (deterministic: the same numbers on any machine):
+
+- about **815 bytes** per recorded interaction (compact encoding);
+- compact encoding saves **46%** over 2-space indentation;
+- the per-interaction cost stays flat from 10 to 1000 interactions, i.e. growth is linear.
+
+**Throughput** (machine- and backend-dependent; only same-machine comparisons mean anything):
+
+| Operation | js | wasm-gc |
+|---|---|---|
+| Fingerprint (1 KB request) | 19 µs | 4 µs |
+| Canonical text (1 KB JSON) | 8 µs | 1 µs |
+| Encode (100 records) | 7.8 ms | 2.0 ms |
+| Decode + verify (100 records) | 5.8 ms | 1.9 ms |
+| Match miss (1000 records, indexed) | 22 µs | 9 µs |
+| Session replay (100 records) | 70 µs | 31 µs |
+| SSE parse (200 frames) | 570 µs | 213 µs |
+
+Reproduce with `moon run examples/benchmarks --target js` (or `--target wasm-gc`).
+
+### Exact, not estimated
+
+Cost is computed from the **usage reported by the provider**, not from a character-count estimate.
+When no usage was reported it is counted as `no_usage` — neither zeroed nor guessed, because
+"unknown" and "zero" are two different things.
+
+To test that claim, compare against a recording of your own:
+
+```bash
+moon run cmd/main --target js -- tokens <your-cassette.json>
+```
+
+It prints the reported usage next to a "4 chars per token" estimate (`mizchi/llm`'s
+`estimate_tokens` uses exactly that rule — its documentation calls it *rough: ~4 chars per token*).
+
+**This project deliberately publishes no "how many times off" ratio**: the example cassettes in
+this repository are constructed, so a ratio computed from them would be fabricated too. The number
+can only come from real calls, and the command above computes it on your data.
+
+---
+
 ## CI integration
 
 The only thing CI has to do is **run the tests** — replay needs no network.
@@ -529,6 +583,7 @@ mooncassette verify  <cassette.json>                 # decode + integrity check;
 mooncassette show    <cassette.json>                 # print a summary (version, records, tokens, models)
 mooncassette diff    <old.json> <new.json>           # report drift between two recordings; exit 1 if any
 mooncassette cost    <cassette.json> <prices.json>   # total token cost against a price table
+mooncassette tokens  <cassette.json>                 # reported usage vs a chars/4 heuristic
 mooncassette explain <cassette.json> <request.json>  # say whether a request replays, and if not, why (exit 1)
 mooncassette help
 ```
@@ -540,6 +595,16 @@ mooncassette help
   built in — they change often, and shipping a stale table only produces numbers that look precise
   and are wrong. The summary also reports `priced` / `unpriced` / `no_usage` counts so you can see
   how much of the recording the total actually covers.
+
+  Reproducible inside this repository:
+
+  ```bash
+  moon run cmd/main --target js -- cost examples/demo.cassette.json examples/prices.example.json
+  # cost=$0.000210  priced=2  unpriced=0  no_usage=0
+  ```
+
+- `tokens` prints the provider-**reported** usage next to a "4 chars per token" estimate, to
+  answer "how far is the estimate from the truth". See *Exact, not estimated* below.
 - `explain` answers "why doesn't this request replay?" using exactly the same diagnostic path as
   the library, so its output matches the error message a failing test would show:
 
@@ -555,6 +620,12 @@ rejected there, pinpointed to `$.interactions[i].integrity`.
 Argument parsing deliberately **does not rely on position** (different backends give different
 semantics to `@env.args()`); it scans for known subcommand keywords instead, so native and js
 behave identically.
+
+**These commands are not published as an installable binary**; inside this repository they are run
+as `moon run cmd/main --target js -- <subcommand>`. If you use the library in your own project, the
+equivalent capability is available directly through the API (`@codec.decode`, `@drift.compare`,
+`@recorder.Session::diagnose`) — the CLI exists so that questions can be answered **without
+recompiling**, not to be the only entry point.
 
 ---
 

@@ -12,6 +12,7 @@ fn is_command(token : String) -> Bool {
   token == "show" ||
   token == "diff" ||
   token == "cost" ||
+  token == "tokens" ||
   token == "explain" ||
   token == "help" ||
   token == "--help"
@@ -35,6 +36,10 @@ fn print_usage() -> Unit {
   println("  mooncassette cost   <cassette.json> <prices.json>")
   println(
     "                                        total token cost against a price table",
+  )
+  println("  mooncassette tokens <cassette.json>")
+  println(
+    "                                        reported usage vs a chars/4 heuristic",
   )
   println("  mooncassette explain <cassette.json> <request.json>")
   println(
@@ -250,6 +255,118 @@ fn run_explain(cassette_path : String, request_path : String) -> Unit {
 }
 
 ///|
+fn pad_right(text : String, width : Int) -> String {
+  let mut out = text
+  while out.length() < width {
+    out = out + " "
+  }
+  out
+}
+
+///|
+/// 一个模型上的 token 对照累计。
+///
+/// 字段可变：边遍历边累加，避免「先收集再分组」的两次遍历。
+struct TokenRow {
+  model : String
+  mut records : Int
+  mut reported_in : Int
+  mut reported_out : Int
+  mut heuristic_in : Int
+}
+
+///|
+/// 取（必要时新建）某个模型的累计行。
+///
+/// 手写线性查找而不是用 `Map`：模型数量是个位数，而 `Map` 需要处理「取出后原地
+/// 修改」的取值语义，在这里得不偿失。
+fn row_for(rows : Array[TokenRow], model : String) -> TokenRow {
+  for row in rows {
+    if row.model == model {
+      return row
+    }
+  }
+  let fresh : TokenRow = {
+    model,
+    records: 0,
+    reported_in: 0,
+    reported_out: 0,
+    heuristic_in: 0,
+  }
+  rows.push(fresh)
+  fresh
+}
+
+///|
+/// 把 provider 上报的 usage 与「按字符数折算」的估算放在一起对照。
+///
+/// 本项目主张「成本来自上报值，不是估算」。这个主张很容易被读成一句广告，所以
+/// 把它变成一条可执行的命令：在**你自己的真实录制**上跑一遍，偏差多大由数据说话。
+///
+/// 也正因如此，项目文档里刻意**不**给出比值：仓库里的示例 cassette 是构造出来的，
+/// 基于它们算出的比值同样是编的。数字只能来自真实调用。
+fn run_tokens(cassette_path : String) -> Unit {
+  let cassette = match load(cassette_path) {
+    Err(message) => return fail(message)
+    Ok(value) => value
+  }
+  let rows : Array[TokenRow] = []
+  for interaction in cassette.interactions {
+    let row = row_for(rows, interaction.request.model)
+    row.records = row.records + 1
+    // 估算口径：请求体的**规范文本**长度除以 4。
+    //
+    // 用规范文本而不是原始字节，是为了与匹配用的形状保持一致 —— 键序与空白
+    // 都不该影响这个数字。
+    row.heuristic_in = row.heuristic_in +
+      @canon.to_canonical_string(interaction.request.body).length() / 4
+    match interaction.response.usage {
+      Some(usage) => {
+        row.reported_in = row.reported_in + usage.input_tokens
+        row.reported_out = row.reported_out + usage.output_tokens
+      }
+      // 没有上报就是没有上报：这里不补零、也不估算。
+      // 「不知道」与「是 0」是两回事，混起来会让成本看起来精确而其实没有依据。
+      None => ()
+    }
+  }
+  if rows.length() == 0 {
+    println("mooncassette: this cassette has no interactions to compare")
+    return
+  }
+  println(
+    pad_right("model", 20) +
+    pad_right("records", 9) +
+    pad_right("reported_in", 13) +
+    pad_right("reported_out", 14) +
+    pad_right("heuristic_in", 14) +
+    "reported/heuristic",
+  )
+  for row in rows {
+    let ratio = if row.heuristic_in > 0 {
+      (row.reported_in * 100 / row.heuristic_in).to_string() + "%"
+    } else {
+      "-"
+    }
+    println(
+      pad_right(row.model, 20) +
+      pad_right(row.records.to_string(), 9) +
+      pad_right(row.reported_in.to_string(), 13) +
+      pad_right(row.reported_out.to_string(), 14) +
+      pad_right(row.heuristic_in.to_string(), 14) +
+      ratio,
+    )
+  }
+  println("")
+  println("note: reported_* 是 provider 上报的 usage（精确值）。")
+  println("      heuristic_in 是把请求体的规范文本按「4 字符 1 token」折算的估算 ——")
+  println("      mizchi/llm 的 estimate_tokens 用的就是这条规则。")
+  println("      偏差随内容类型变化：中文、代码与 emoji 的偏差远大于英文。")
+  println("      本仓库的示例 cassette 是构造的，因此文档里不给比值；")
+  println("      要数字的话，请在你自己的真实录制上跑这条命令。")
+}
+
+///|
 fn main {
   let argv = @env.args()
   // 丢掉 argv[0]（native 为程序名，js 为运行时），其余用关键字扫描定位。
@@ -296,6 +413,11 @@ fn main {
       } else if name == "cost" {
         match paths {
           [cassette_path, table_path, ..] => run_cost(cassette_path, table_path)
+          _ => print_usage()
+        }
+      } else if name == "tokens" {
+        match paths {
+          [cassette_path, ..] => run_tokens(cassette_path)
           _ => print_usage()
         }
       } else if name == "explain" {

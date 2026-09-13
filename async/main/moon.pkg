@@ -1,6 +1,0 @@
-// mooncassette 异步适配层（骨架，依赖稍后解析后补齐）。
-import {
-  "moonbitlang/core/json",
-}
-
-pkgtype(kind: "executable")

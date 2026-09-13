@@ -25,11 +25,24 @@ const packageFiles = readdirSync(join(here, "main"))
 // 会算出同一个摘要。
 const files = ["moon.mod", "index.html", ...packageFiles];
 
+// 把内容归一化之后再哈希：统一行尾、去掉 BOM。
+//
+// 归一化不是可选项。git 在把仓库检出到 Linux 时会把 CRLF 转成 LF，于是**同一份
+// 源码在不同平台上的字节并不相同**。这条检查第一版就没做归一化，CI 立刻变红 ——
+// 而红的原因与源码毫无关系，只是在说「你在 Windows 上构建」。摘要要回答的是
+// 「内容变了没有」，不是「你在哪个平台」。
+function normalize(buffer) {
+  return buffer
+    .toString("utf8")
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n/g, "\n");
+}
+
 const digest = createHash("sha256");
 for (const file of files) {
   digest.update(file);
   digest.update("\0");
-  digest.update(readFileSync(join(here, file)));
+  digest.update(normalize(readFileSync(join(here, file))), "utf8");
   digest.update("\0");
 }
 

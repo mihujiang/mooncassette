@@ -1,0 +1,16 @@
+// mooncassette 异步适配层的示例。
+//
+// 本包**只针对 js**：它借用 node 自带的 http 起一个本地服务端当脚手架
+// （`@http.Server` 只在 native 上可用，而本机没有 C 编译器）。
+// 被测的是**客户端与适配层**，客户端在 js 上走 `fetch`。
+import {
+  "moonbitlang/async",
+  "moonbitlang/core/json",
+  "weopqrst/mooncassette-async/adapter",
+  "weopqrst/mooncassette/codec",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/providers",
+  "weopqrst/mooncassette/recorder",
+}
+
+pkgtype(kind: "executable")

@@ -1,0 +1,11 @@
+// mooncassette 异步适配层。
+//
+// 本包**不含任何 `extern "js"`**：它只依赖 `@http`，因此在 js / native / wasm 上
+// 都能编译。这一点是刻意的 —— 适配层是库的一部分，不该被某个目标绑架。
+import {
+  "moonbitlang/async/http",
+  "moonbitlang/async/io",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/providers",
+  "weopqrst/mooncassette/recorder",
+}

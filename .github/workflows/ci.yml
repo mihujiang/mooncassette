@@ -205,6 +205,25 @@ jobs:
           fi
           echo "docs/ is in sync with the source"
 
+      # ── 异步适配层（独立模块，验证阶段）────────────────────────────────────
+      #
+      # 它依赖 `moonbitlang/async`，而**开发者的本机工具链可能不支持该包要求的语法**：
+      # 实测本机 2026-07-13 的 moon 报出一批语法错误，且全部来自该依赖自己的源码
+      # （`async () -> Unit noraise + nocancel`、`guard!` 这类）。
+      #
+      # CI 装的是最新工具链，所以这里跑一次就能回答那个本机答不了的问题：
+      # 是代码写错了，还是工具链太旧。这个结论直接决定要不要升级本机工具链。
+      #
+      # `continue-on-error` 是刻意的：该模块还在验证阶段，失败是有价值的信息，
+      # 但它不该把整个 CI 变红 —— 「主干是绿的」这件事必须始终可信。
+      - name: Async adapter (experimental)
+        continue-on-error: true
+        run: |
+          cd async
+          moon update
+          moon check --target js
+          moon run main --target js
+
       # 基准：打印规模指标与时间指标。这里跑它是为了让它**保持可用** —— 基准一旦
       # 编不过就没人会跑，而没人跑的基准很快就会与现实脱节。
       # 只断言「跑得通、失败次数为 0」，不对耗时做断言：那取决于 CI 机器。

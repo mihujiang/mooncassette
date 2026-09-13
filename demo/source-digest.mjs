@@ -21,9 +21,16 @@ const packageFiles = readdirSync(join(here, "main"))
   .sort()
   .map((name) => join("main", name));
 
+// 刻意**不**包含 `moon.mod`。
+//
+// 它不是「页面的源码」，而是由工具维护的依赖声明：`moon update` 会重写它（规范化
+// import、补齐传递依赖），而不同版本的工具链重写出来的内容可能不同。把它算进摘要，
+// 检查就会在「工具链版本不同」时报红 —— 那与「docs/ 是不是过期」毫无关系。
+// 这条检查前后让我踩了三次，第三次就是它。
+//
 // 顺序固定（已排序），且把文件名也喂进摘要：否则「两个文件内容互换」这类改动
 // 会算出同一个摘要。
-const files = ["moon.mod", "index.html", ...packageFiles];
+const files = ["index.html", ...packageFiles];
 
 // 把内容归一化之后再哈希：统一行尾、去掉 BOM。
 //

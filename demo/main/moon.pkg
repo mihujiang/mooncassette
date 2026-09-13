@@ -1,0 +1,11 @@
+import {
+  "moonbitlang/core/json",
+  "weopqrst/mooncassette",
+  "weopqrst/mooncassette/canon",
+  "weopqrst/mooncassette/codec",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/matcher",
+  "weopqrst/mooncassette/sanitize",
+}
+
+pkgtype(kind: "executable")

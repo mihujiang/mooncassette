@@ -10,3 +10,16 @@ target
 
 # 参赛申报书：用于报名，不对外展示，因此不提交、也不进入发布包。
 /申报书.md
+
+# 浏览器 Demo 与 Pages 产物。
+#
+# 它们必须被忽略，理由不是「不想展示」，而是**技术性的**：
+# moon 的打包与包发现都遵循 .gitignore，而 Demo 是一个自带 moon.mod 的
+# 独立模块、且使用 `extern "js"`（该语法在 wasm-gc 后端不受支持）。若不忽略，
+# 父模块会把它当成自己的包去编译 —— `moon check --target wasm-gc` 会直接失败，
+# 发布包里也会混进一个嵌套 moon.mod。
+#
+# 但它们的源码与构建产物要留在仓库里（Demo 是「别人真的会 moon add 这个包」的
+# 证据，Pages 也从 docs/ 提供服务），因此这些文件用 `git add -f` 强制加入。
+/demo/
+/docs/

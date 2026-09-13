@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mooncassette playground</title>
+<style>
+:root {
+  --bg: #0f1115;
+  --panel: #171a21;
+  --panel-2: #1e222b;
+  --border: #2a2f3a;
+  --text: #e6e8ec;
+  --muted: #9aa3b2;
+  --accent: #6ea8fe;
+  --ok: #3fb950;
+  --warn: #d29922;
+  --bad: #f85149;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 0 20px 48px;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.6 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+header { max-width: 1200px; margin: 0 auto; padding: 28px 0 8px; }
+h1 { margin: 0 0 6px; font-size: 22px; letter-spacing: .2px; }
+h2 { font-size: 17px; margin: 4px 0 10px; }
+h3 { font-size: 14px; margin: 14px 0 6px; color: var(--muted); font-weight: 600; }
+.tagline { margin: 0 0 16px; color: var(--muted); max-width: 76ch; }
+.tagline code { color: var(--accent); }
+main, footer, #diagnose-controls { max-width: 1200px; margin: 0 auto; }
+footer { margin-top: 28px; color: var(--muted); font-size: 13px; }
+footer a { color: var(--accent); }
+code, pre {
+  font-family: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, monospace;
+  font-size: 12.5px;
+}
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 0 0 16px; }
+button {
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+button.link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  padding: 0;
+  font-size: 13px;
+}
+label.file {
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+label.file input { display: none; }
+label.file:hover { border-color: var(--accent); color: var(--accent); }
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--border); }
+.tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  color: var(--muted);
+  padding: 9px 12px;
+}
+.tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.panel { padding: 18px 0 8px; }
+.meta { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+.meta code { color: var(--accent); }
+table.rows { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.rows th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+table.rows td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+table.rows code { color: var(--accent); }
+.badge {
+  display: inline-block;
+  min-width: 34px;
+  text-align: center;
+  padding: 1px 7px;
+  border-radius: 10px;
+  font-size: 12px;
+  border: 1px solid var(--border);
+}
+.badge.ok { color: var(--ok); border-color: var(--ok); }
+.badge.warn { color: var(--warn); border-color: var(--warn); }
+.badge.bad { color: var(--bad); border-color: var(--bad); }
+.badge.muted { color: var(--muted); }
+pre.code {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 0 0 12px;
+  overflow: auto;
+  max-height: 420px;
+  white-space: pre;
+}
+.columns { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+@media (max-width: 900px) { .columns { grid-template-columns: 1fr; } }
+.status {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  min-height: 24px;
+}
+.verdict { font-size: 14px; padding: 9px 12px; border-radius: 6px; border: 1px solid var(--border); }
+.verdict.ok { color: var(--ok); border-color: var(--ok); }
+.verdict.bad { color: var(--bad); border-color: var(--bad); }
+.empty { padding: 28px 0; }
+.empty-title { margin: 0 0 4px; font-size: 15px; }
+.empty-hint { margin: 0; color: var(--muted); font-size: 13px; }
+.row-head { display: flex; align-items: center; gap: 14px; }
+.nav-buttons { display: flex; gap: 8px; }
+#diagnose-controls { padding: 0 0 16px; }
+#diagnose-controls label { display: block; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+#diagnose-request {
+  width: 100%;
+  min-height: 130px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12.5px;
+  resize: vertical;
+}
+#diagnose-request:focus { outline: none; border-color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>mooncassette playground</h1>
+  <p class="tagline">
+    LLM 调用的确定性录制与回放。这个页面本身就是一个真实的下游消费者：它用
+    <code>moon add weopqrst/mooncassette</code> 引入本库，全部计算都在你的浏览器里完成 ——
+    不发任何网络请求，也不需要 API Key。
+  </p>
+  <div class="actions">
+    <button data-action="load-sample">载入自带样例</button>
+    <button data-action="load-drifted">载入漂移样例</button>
+    <button data-action="load-leaky">载入含密钥样例</button>
+    <label class="file">选择 cassette 文件<input type="file" id="file-input" accept=".json,application/json"></label>
+    <label class="file">选择对比用的 cassette<input type="file" id="file-input-right" accept=".json,application/json"></label>
+  </div>
+</header>
+
+<div id="diagnose-controls" style="display:none">
+  <label for="diagnose-request">要诊断的请求（形状：{"provider": …, "model": …, "body": …}）</label>
+  <textarea id="diagnose-request" spellcheck="false"></textarea>
+</div>
+
+<main id="app"></main>
+
+<footer>
+  源码：<a href="https://github.com/mihujiang/mooncassette">github.com/mihujiang/mooncassette</a>　
+  本页面位于仓库的 <code>demo/</code>，是独立模块；构建产物在 <code>docs/</code>。
+</footer>
+
+<script type="module" src="./main.js"></script>
+</body>
+</html>

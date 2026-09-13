@@ -53,6 +53,12 @@ pub struct Session {
   transport : &Transport?
   policy : @matcher.MatchPolicy
   sanitize : @sanitize.SanitizePolicy
+  /// 指纹索引的缓存。`None` 表示尚未建立。
+  ///
+  /// 缓存在会话上而不是 cassette 上：索引是「为某次扫描服务」的派生数据，
+  /// 而 cassette 是要落盘的**数据本身**——把派生数据塞进它，序列化就需要
+  /// 额外解释「这个字段要不要写进文件」，得不偿失。
+  mut match_index : @matcher.MatchIndex?
 }
 
 ///|
@@ -86,6 +92,7 @@ pub fn Session::new(
       Some(value) => value
       None => @sanitize.SanitizePolicy::default()
     },
+    match_index: None,
   }
 }
 
@@ -178,12 +185,20 @@ fn Session::try_match(
   self : Session,
   request : @core.Request,
 ) -> @core.Response? raise @core.CassetteError {
-  let result = @matcher.find_match(
-    request,
-    self.cassette.interactions[:],
-    self.policy,
-    self.cursor,
-  )
+  let interactions = self.cassette.interactions[:]
+  // 只有靠指纹筛选的策略才值得建索引；顺序与子集策略根本用不上它，
+  // 为它们建索引只是白白付一次 O(记录数)。
+  let result = if self.policy.scans_by_fingerprint() {
+    @matcher.find_match(
+      request,
+      interactions,
+      self.policy,
+      self.cursor,
+      index=self.fingerprint_index(),
+    )
+  } else {
+    @matcher.find_match(request, interactions, self.policy, self.cursor)
+  }
   match result {
     Some(found) => {
       self.cursor = found.index + 1
@@ -193,6 +208,34 @@ fn Session::try_match(
     None => {
       self.misses = self.misses + 1
       None
+    }
+  }
+}
+
+///|
+/// 取（必要时建立）当前 cassette 的指纹索引。
+///
+/// 索引缓存在会话上，因此重复回放只付一次建立成本（实测 1000 条记录约
+/// 19 毫秒），此后每次匹配都是纯粹的字符串比较。
+///
+/// 条数对不上就整体重建：调用方有可能直接改动了 `cassette()` 返回的记录，
+/// 而索引一旦与记录错位，症状会是「回放出了另一个响应」——不是报错，
+/// 而是**静默的错误结果**。宁可重建。
+fn Session::fingerprint_index(self : Session) -> @matcher.MatchIndex {
+  let interactions = self.cassette.interactions[:]
+  match self.match_index {
+    Some(built) =>
+      if built.aligned_with(interactions) {
+        built
+      } else {
+        let rebuilt = @matcher.MatchIndex::build(interactions)
+        self.match_index = Some(rebuilt)
+        rebuilt
+      }
+    None => {
+      let built = @matcher.MatchIndex::build(interactions)
+      self.match_index = Some(built)
+      built
     }
   }
 }
@@ -314,9 +357,16 @@ fn Session::store(
   stored : @core.Request,
   response : @core.Response,
 ) -> Unit {
-  self.cassette.push(@core.Interaction::new(stored, response))
+  let interaction = @core.Interaction::new(stored, response)
+  self.cassette.push(interaction)
   self.cursor = self.cassette.length()
   self.recorded = self.recorded + 1
+  // 同步追加而不是作废索引：这样才能维持「索引与记录逐位对齐」这条不变量。
+  // 作废后重建是 O(记录数)，放进录制循环会退化成 O(记录数²)。
+  match self.match_index {
+    Some(built) => built.push(interaction)
+    None => ()
+  }
 }
 
 ///|

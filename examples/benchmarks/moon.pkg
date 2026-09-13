@@ -1,0 +1,19 @@
+// mooncassette 基准。
+//
+// 纯计算，可在全部后端编译运行。
+//
+// 包名不叫 `bench`：那会与 `moonbitlang/core/bench` 的默认别名冲突。
+import {
+  "moonbitlang/core/bench",
+  "moonbitlang/core/json",
+  "weopqrst/mooncassette/canon",
+  "weopqrst/mooncassette/codec",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/fingerprint",
+  "weopqrst/mooncassette/matcher",
+  "weopqrst/mooncassette/recorder",
+  "weopqrst/mooncassette/sanitize",
+  "weopqrst/mooncassette/stream",
+}
+
+pkgtype(kind: "executable")

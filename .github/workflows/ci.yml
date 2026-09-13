@@ -148,3 +148,26 @@ jobs:
       # 的话，重试逻辑写错了不会被发现。示例同时演示环形与顺序策略的差别。
       - name: Run the retry demo
         run: moon run examples/rate_limit_retry --target js
+
+      # 基准：打印规模指标与时间指标。这里跑它是为了让它**保持可用** —— 基准一旦
+      # 编不过就没人会跑，而没人跑的基准很快就会与现实脱节。
+      # 只断言「跑得通、失败次数为 0」，不对耗时做断言：那取决于 CI 机器。
+      - name: Run the benchmark
+        run: |
+          set +e
+          output=$(moon run examples/benchmarks --target js)
+          code=$?
+          set -e
+          echo "$output"
+          if [ "$code" -ne 0 ]; then
+            echo "::error::the benchmark failed to run"
+            exit 1
+          fi
+          if ! echo "$output" | grep -q "被测路径的失败次数：0"; then
+            echo "::error::the benchmark measured a path that raises (failures != 0)"
+            exit 1
+          fi
+          if ! echo "$output" | grep -q "^ok$"; then
+            echo "::error::the benchmark did not finish"
+            exit 1
+          fi

@@ -365,13 +365,37 @@ list lives in `@core.default_drop_keys` and can be customized.
 | Strategy | Semantics | When to use |
 |---|---|---|
 | `Exact` | Same fingerprint **and** identical canonical text | Default, recommended |
-| `FingerprintOnly` | Compare fingerprints only, skip the text comparison | Only with a measured performance need |
+| `FingerprintOnly` | Compare fingerprints only, skip the canonical-text check | It saves a **check**, not work (measured on par with `Exact`); prefer `Exact` unless you have a reason |
 | `Subset(keys)` | Compare only the given top-level body fields | "Same prompt means same call" |
 | `Sequential` | Ignore content, consume in recording order | Call order is itself the semantics |
 
 Lookup uses **ring scanning**: search forward from the current cursor, then wrap around to the
 beginning. That handles both "the same request was recorded several times, replay them in order"
 and "more calls than recordings, reuse the earliest one" instead of failing outright.
+
+### What matching costs, and the fingerprint index
+
+Almost all of the cost of a match is **the fingerprint**: it is derived from the request's
+canonical text, so one computation is roughly one normalization plus one hash. Recompute it per
+record while scanning and the cost grows with the number of records.
+
+So `matcher` offers `MatchIndex`: compute the fingerprints once for the whole table, then compare
+strings while scanning. `Session` builds and caches it automatically, appending as it records.
+Measured (1000 records, js backend, data from `examples/benchmarks`):
+
+| Scenario | Without an index | With an index |
+|---|---|---|
+| Miss (full scan) | 18.8 ms | 22 µs |
+| Session replay (100 records) | 1.9 ms | 70 µs |
+| Building the index | — | 18.3 ms (once per cassette) |
+
+Calling `@matcher.find_match` without `index` takes the compute-on-the-fly path: identical
+results, just slower — fine for a one-off query. Pass an index when querying the same cassette
+repeatedly.
+
+This also settles a related point: `FingerprintOnly` is *not* faster than `Exact`. The two differ
+only in whether the canonical text confirms a fingerprint hit, and **computing a fingerprint
+already needs the canonical text** — what is saved is a check, not work.
 
 ### What a miss tells you
 
@@ -559,7 +583,10 @@ moon check --target js
 moon fmt && moon info
 ```
 
-**All 282 tests pass**, covering twelve packages, each run on both `wasm-gc` and `js`. The point is not
+**All 291 tests pass**, covering twelve packages, each run on both `wasm-gc` and `js`.
+`examples/benchmarks` additionally prints a set of **size metrics** (deterministic, dependent only on
+the data) and a set of **timing metrics** (dependent on the machine and backend): kept apart so that
+"how busy the CI machine was today" never becomes an assertion that drifts. The point is not
 the line count but that **every invariant above has a matching assertion**:
 
 - FNV-1a is verified against the official vectors (empty string / `"a"` / `"foobar"`);
@@ -631,7 +658,13 @@ the line count but that **every invariant above has a matching assertion**:
   drops the earlier reply, which is exactly the trap a retry sequence falls into);
 - retry paths: a 429 → 200 sequence replays offline, with no network call during replay;
 - when calls outnumber recordings, the ring policy reuses the earliest entry while the sequential
-  policy raises `Exhausted` — both behaviours are pinned by tests.
+  policy raises `Exhausted` — both behaviours are pinned by tests;
+- fingerprint index: indexed and unindexed lookups return the same hit index across **every policy
+  and every cursor** — an index that changed results would show up as "replay returned a different
+  response", not as an error, which is the hardest class of bug to find;
+- fingerprint index: stays aligned while recordings are appended, and 50 long-cassette lookups hit
+  in order without misalignment;
+- the subset policy agrees with and without an index (it never uses whole-request fingerprints).
 
 ---
 

@@ -11,8 +11,11 @@ pub(all) enum MatchPolicy {
   Exact
   /// 宽松：只比较指纹，跳过规范文本比对。
   ///
-  /// 这是一条性能逃生通道：省去一次全量文本比较，代价是理论上
-  /// 可能命中因哈希碰撞而产生的错误记录。除非确有性能瓶颈，否则请用 `Exact`。
+  /// 与 `Exact` 的差别只有一处：指纹相同之后不再用规范文本确认。因此它省掉的
+  /// 是**校验**而不是**计算**——指纹本身仍要从规范文本导出，「比较指纹」并不比
+  /// 「比较规范文本」便宜（实测两者相当，见 `examples/benchmarks`）。
+  ///
+  /// 代价是理论上可能命中哈希碰撞产生的错误记录。除非确有理由，否则请用 `Exact`。
   FingerprintOnly
   /// 子集：只比较请求体顶层的指定字段，其余字段一律忽略。
   ///
@@ -39,6 +42,22 @@ pub fn MatchPolicy::name(self : MatchPolicy) -> String {
 }
 
 ///|
+/// 该策略是否通过**整请求指纹**筛选候选。
+///
+/// 用来判断「这次匹配值不值得建指纹索引」：`Exact` 与 `FingerprintOnly` 逐条
+/// 比较整请求指纹，索引能把「每条一次的重算」降为「整表一次」；而 `Sequential`
+/// 根本不比对请求，`Subset` 比较的是子集投影（投影依赖 `keys`，不是整请求
+/// 指纹），给它们建索引只是白白付一次 O(记录数) 的代价。
+pub fn MatchPolicy::scans_by_fingerprint(self : MatchPolicy) -> Bool {
+  match self {
+    Exact => true
+    FingerprintOnly => true
+    Subset(_) => false
+    Sequential => false
+  }
+}
+
+///|
 /// 一次成功匹配的结果。
 pub(all) struct MatchResult {
   /// 命中的记录在 cassette 中的下标，调用方据此推进游标。
@@ -58,11 +77,15 @@ pub(all) struct MatchResult {
 ///
 /// 只有当**指纹相同而规范请求不同**（即真实哈希碰撞）时才抛错：
 /// 那是数据层面的异常，静默容忍会掩盖问题。
+///
+/// `index` 可选：传入 `MatchIndex` 可复用已算好的指纹（见 `MatchIndex` 的说明）。
+/// 省略时逐条现算，结果完全一致，只是慢。重复查询同一份 cassette 时应当传入。
 pub fn find_match(
   request : @core.Request,
   interactions : ArrayView[@core.Interaction],
   policy : MatchPolicy,
   cursor : Int,
+  index? : MatchIndex,
 ) -> MatchResult? raise @core.CassetteError {
   let total = interactions.length()
   if total == 0 {
@@ -77,9 +100,15 @@ pub fn find_match(
       } else {
         None
       }
-    Exact => search_by_text(request, interactions, clamp_cursor(cursor, total))
+    Exact =>
+      search_by_text(request, interactions, clamp_cursor(cursor, total), index)
     FingerprintOnly =>
-      search_by_fingerprint(request, interactions, clamp_cursor(cursor, total))
+      search_by_fingerprint(
+        request,
+        interactions,
+        clamp_cursor(cursor, total),
+        index,
+      )
     Subset(keys) =>
       search_by_subset(request, interactions, clamp_cursor(cursor, total), keys)
   }
@@ -129,21 +158,24 @@ fn ring_index(start : Int, offset : Int, total : Int) -> Int {
 
 ///|
 /// 严格匹配：指纹筛选 + 规范文本全等校验。
+///
+/// 规范文本只在该候选指纹相同时才计算：它是**校验**，不是筛选条件，
+/// 对绝大多数不匹配的候选都是白算。
 fn search_by_text(
   request : @core.Request,
   interactions : ArrayView[@core.Interaction],
   start : Int,
+  index : MatchIndex?,
 ) -> MatchResult? raise @core.CassetteError {
   let total = interactions.length()
   let target_fingerprint = @fingerprint.fingerprint(request)
-  let target_text = @fingerprint.canonical_request(request)
   let mut offset = 0
   while offset < total {
-    let index = ring_index(start, offset, total)
-    let candidate = interactions[index]
-    if @fingerprint.fingerprint(candidate.request) == target_fingerprint {
-      if @fingerprint.canonical_request(candidate.request) == target_text {
-        return Some({ index, interaction: candidate })
+    let at = ring_index(start, offset, total)
+    if recorded_fingerprint(interactions, index, at) == target_fingerprint {
+      if @fingerprint.canonical_request(interactions[at].request) ==
+        @fingerprint.canonical_request(request) {
+        return Some({ index: at, interaction: interactions[at] })
       }
       raise @core.CassetteError::FingerprintCollision(target_fingerprint)
     }
@@ -158,15 +190,15 @@ fn search_by_fingerprint(
   request : @core.Request,
   interactions : ArrayView[@core.Interaction],
   start : Int,
+  index : MatchIndex?,
 ) -> MatchResult? {
   let total = interactions.length()
   let target = @fingerprint.fingerprint(request)
   let mut offset = 0
   while offset < total {
-    let index = ring_index(start, offset, total)
-    let candidate = interactions[index]
-    if @fingerprint.fingerprint(candidate.request) == target {
-      return Some({ index, interaction: candidate })
+    let at = ring_index(start, offset, total)
+    if recorded_fingerprint(interactions, index, at) == target {
+      return Some({ index: at, interaction: interactions[at] })
     }
     offset = offset + 1
   }

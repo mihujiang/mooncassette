@@ -175,6 +175,26 @@ test "returning to #overview keeps whatever the user loaded" {
 }
 
 ///|
+test "the detail view shows one interaction and guards a bad index" {
+  // 详情视图里有一条下界/上界判断，而它的输入（`data-arg`）来自**可以被编辑的
+  // DOM**，因此那条判断是真正的防线，不是装饰 —— 它必须被测试钉住。
+  let state = AppState::new()
+  state.load_primary("自带样例", sample_text())
+  state.view = View::Detail
+  // 取流式那一条：帧序列也要列出来（「回放时会逐帧交付」正是这一屏要讲的事）。
+  state.detail = Some(1)
+  let html = render_app(state)
+  assert_true(html.contains("上一条"))
+  assert_true(html.contains("下一条"))
+  assert_true(html.contains("回放时会按这个顺序逐帧交付"))
+  // 越界与负数都必须被挡住，而不是让渲染崩在数组下标上。
+  state.detail = Some(99)
+  assert_true(render_app(state).contains("记录下标越界"))
+  state.detail = Some(-1)
+  assert_true(render_app(state).contains("记录下标越界"))
+}
+
+///|
 test "identical recordings report no drift" {
   let state = AppState::new()
   state.load_primary("自带样例", sample_text())

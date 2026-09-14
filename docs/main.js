@@ -806,23 +806,23 @@ const _M0FP38weopqrst12mooncassette4core19default__drop__keys = ["request_id", "
 const _M0FP38weopqrst12mooncassette11fingerprint9algorithm = "fnv1a64";
 const _M0FP38weopqrst12mooncassette5codec11format__tag = "mooncassette";
 const _M0FP38weopqrst12mooncassette5drift18short__fingerprintN7_2abindS83 = ":";
-const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS340 = 0;
-const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS341 = 1;
-const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS342 = 2;
-const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS343 = 3;
-const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS344 = 4;
+const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS341 = 0;
+const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS342 = 1;
+const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS343 = 2;
+const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS344 = 3;
+const _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS345 = 4;
 const _M0FPB4seed = _M0FPB12random__seed();
 const _M0FP38weopqrst12mooncassette5codec6encodeN6constrS198 = 2;
-const _M0FP38weopqrst19mooncassette_2ddemo4main12sample__textN6constrS345 = "2026-09-13T00:00:00Z";
+const _M0FP38weopqrst19mooncassette_2ddemo4main12sample__textN6constrS346 = "2026-09-13T00:00:00Z";
 const _M0FPC28internal7strconv17check__underscoreN25_2atransition__table__178S186 = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4, 5, 5, 5, 5, 5, 0, 1, 2, 5];
 const _M0FPC28internal7strconv15parse__inf__nanN25_2atransition__table__260S268 = [14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 3, 4, 14, 14, 14, 14, 14, 14, 14, 7, 14, 14, 14, 14, 5, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 6, 14, 14, 14, 0, 14, 14, 14, 14, 14, 14, 14, 14, 14, 8, 14, 14, 14, 14, 14, 1, 14, 14, 9, 14, 14, 14, 14, 14, 14, 14, 14, 10, 14, 14, 14, 14, 14, 14, 11, 14, 14, 14, 14, 14, 14, 14, 14, 14, 12, 14, 14, 14, 14, 14, 14, 14, 14, 13, 14, 1, 14, 14, 14, 14, 14, 14, 14];
-const _M0FP38weopqrst19mooncassette_2ddemo4main16render__diagnoseN6constrS348 = 5;
+const _M0FP38weopqrst19mooncassette_2ddemo4main16render__diagnoseN6constrS349 = 5;
 const _M0FPB18brute__force__findN6constrS9194 = 0;
 const _M0FPB28boyer__moore__horspool__findN6constrS9193 = 0;
 const _M0FP38weopqrst12mooncassette5drift18short__fingerprintN6constrS108 = 8;
-const _M0FP38weopqrst19mooncassette_2ddemo4main11leaky__textN6constrS346 = "2026-09-13T00:00:00Z";
-const _M0FP38weopqrst19mooncassette_2ddemo4main13drifted__textN6constrS347 = "2026-09-13T00:00:00Z";
-const _M0FP38weopqrst19mooncassette_2ddemo4main11apply__hashN6constrS349 = 0;
+const _M0FP38weopqrst19mooncassette_2ddemo4main11leaky__textN6constrS347 = "2026-09-13T00:00:00Z";
+const _M0FP38weopqrst19mooncassette_2ddemo4main13drifted__textN6constrS348 = "2026-09-13T00:00:00Z";
+const _M0FP38weopqrst19mooncassette_2ddemo4main11apply__hashN6constrS350 = 0;
 function _M0FPC15abort5abortGRPB4JsonE(msg) {
   return $panic();
 }
@@ -7763,38 +7763,38 @@ function _M0FP38weopqrst12mooncassette8sanitize18sanitize__cassette(cassette, po
 function _M0FP28weopqrst12mooncassette19compare__recordings(old, new_) {
   return _M0FP38weopqrst12mooncassette5drift7compare(old, new_);
 }
-function _M0IP38weopqrst19mooncassette_2ddemo4main4ViewPB2Eq5equal(_x_153, _x_154) {
-  switch (_x_153) {
+function _M0IP38weopqrst19mooncassette_2ddemo4main4ViewPB2Eq5equal(_x_154, _x_155) {
+  switch (_x_154) {
     case 0: {
-      if (_x_154 === 0) {
+      if (_x_155 === 0) {
         return true;
       } else {
         return false;
       }
     }
     case 1: {
-      if (_x_154 === 1) {
+      if (_x_155 === 1) {
         return true;
       } else {
         return false;
       }
     }
     case 2: {
-      if (_x_154 === 2) {
+      if (_x_155 === 2) {
         return true;
       } else {
         return false;
       }
     }
     case 3: {
-      if (_x_154 === 3) {
+      if (_x_155 === 3) {
         return true;
       } else {
         return false;
       }
     }
     default: {
-      if (_x_154 === 4) {
+      if (_x_155 === 4) {
         return true;
       } else {
         return false;
@@ -7862,19 +7862,19 @@ function _M0MP38weopqrst19mooncassette_2ddemo4main4View4hint(self) {
 function _M0FP38weopqrst19mooncassette_2ddemo4main8view__of(name) {
   switch (name) {
     case "overview": {
-      return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS340;
-    }
-    case "detail": {
       return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS341;
     }
-    case "drift": {
+    case "detail": {
       return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS342;
     }
-    case "diagnose": {
+    case "drift": {
       return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS343;
     }
-    case "sanitize": {
+    case "diagnose": {
       return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS344;
+    }
+    case "sanitize": {
+      return _M0FP38weopqrst19mooncassette_2ddemo4main8view__ofN6constrS345;
     }
     default: {
       return undefined;
@@ -7994,7 +7994,7 @@ function _M0FP38weopqrst19mooncassette_2ddemo4main26rate__limited__interaction()
   return _M0MP38weopqrst12mooncassette4core11Interaction3new(_M0FP38weopqrst19mooncassette_2ddemo4main13chat__request("再问一次同样的问题。"), _M0MP38weopqrst12mooncassette4core8Response3new(429, new _M0DTPB4Json6Object(body), undefined, _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11StreamFrameEE4None__));
 }
 function _M0FP38weopqrst19mooncassette_2ddemo4main12sample__text() {
-  return _M0FP38weopqrst12mooncassette5codec6encode(_M0MP38weopqrst12mooncassette4core8Cassette3new("demo", _M0FP38weopqrst19mooncassette_2ddemo4main12sample__textN6constrS345, new _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11InteractionEE4Some([_M0FP38weopqrst19mooncassette_2ddemo4main18plain__interaction("确定性回放指的是：不重新调用模型，只按录制好的响应逐字节重演。"), _M0FP38weopqrst19mooncassette_2ddemo4main22streaming__interaction("结论：它把外部依赖变成可离线运行的测试"), _M0FP38weopqrst19mooncassette_2ddemo4main26rate__limited__interaction()])), undefined);
+  return _M0FP38weopqrst12mooncassette5codec6encode(_M0MP38weopqrst12mooncassette4core8Cassette3new("demo", _M0FP38weopqrst19mooncassette_2ddemo4main12sample__textN6constrS346, new _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11InteractionEE4Some([_M0FP38weopqrst19mooncassette_2ddemo4main18plain__interaction("确定性回放指的是：不重新调用模型，只按录制好的响应逐字节重演。"), _M0FP38weopqrst19mooncassette_2ddemo4main22streaming__interaction("结论：它把外部依赖变成可离线运行的测试"), _M0FP38weopqrst19mooncassette_2ddemo4main26rate__limited__interaction()])), undefined);
 }
 function _M0FP38weopqrst19mooncassette_2ddemo4main17miss__query__text() {
   const _bind = [];
@@ -8025,10 +8025,10 @@ function _M0FP38weopqrst19mooncassette_2ddemo4main11leaky__text() {
   _M0MPB3Map3setGsRPB4JsonE(answer, "access_token", new _M0DTPB4Json6String(_p$5));
   const _p$6 = "已查询，安全字段会保留。";
   _M0MPB3Map3setGsRPB4JsonE(answer, "content", new _M0DTPB4Json6String(_p$6));
-  return _M0FP38weopqrst12mooncassette5codec6encode(_M0MP38weopqrst12mooncassette4core8Cassette3new("leaky", _M0FP38weopqrst19mooncassette_2ddemo4main11leaky__textN6constrS346, new _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11InteractionEE4Some([_M0MP38weopqrst12mooncassette4core11Interaction3new(_M0MP38weopqrst12mooncassette4core7Request3new("openai", "gpt-4o", new _M0DTPB4Json6Object(body)), _M0MP38weopqrst12mooncassette4core8Response2ok(new _M0DTPB4Json6Object(answer), undefined, _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11StreamFrameEE4None__))])), undefined);
+  return _M0FP38weopqrst12mooncassette5codec6encode(_M0MP38weopqrst12mooncassette4core8Cassette3new("leaky", _M0FP38weopqrst19mooncassette_2ddemo4main11leaky__textN6constrS347, new _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11InteractionEE4Some([_M0MP38weopqrst12mooncassette4core11Interaction3new(_M0MP38weopqrst12mooncassette4core7Request3new("openai", "gpt-4o", new _M0DTPB4Json6Object(body)), _M0MP38weopqrst12mooncassette4core8Response2ok(new _M0DTPB4Json6Object(answer), undefined, _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11StreamFrameEE4None__))])), undefined);
 }
 function _M0FP38weopqrst19mooncassette_2ddemo4main13drifted__text() {
-  return _M0FP38weopqrst12mooncassette5codec6encode(_M0MP38weopqrst12mooncassette4core8Cassette3new("demo", _M0FP38weopqrst19mooncassette_2ddemo4main13drifted__textN6constrS347, new _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11InteractionEE4Some([_M0FP38weopqrst19mooncassette_2ddemo4main18plain__interaction("确定性回放指的是：不重新调用模型，只按录制好的响应逐字节重演。"), _M0FP38weopqrst19mooncassette_2ddemo4main22streaming__interaction("结论：它把外部依赖变成了可离线运行、且可复现的测试"), _M0FP38weopqrst19mooncassette_2ddemo4main26rate__limited__interaction()])), undefined);
+  return _M0FP38weopqrst12mooncassette5codec6encode(_M0MP38weopqrst12mooncassette4core8Cassette3new("demo", _M0FP38weopqrst19mooncassette_2ddemo4main13drifted__textN6constrS348, new _M0DTPC16option6OptionGRPB5ArrayGRP38weopqrst12mooncassette4core11InteractionEE4Some([_M0FP38weopqrst19mooncassette_2ddemo4main18plain__interaction("确定性回放指的是：不重新调用模型，只按录制好的响应逐字节重演。"), _M0FP38weopqrst19mooncassette_2ddemo4main22streaming__interaction("结论：它把外部依赖变成了可离线运行、且可复现的测试"), _M0FP38weopqrst19mooncassette_2ddemo4main26rate__limited__interaction()])), undefined);
 }
 function _M0FP38weopqrst19mooncassette_2ddemo4main12escape__html(text) {
   const out = _M0MPB13StringBuilder21StringBuilder_2einner(0);
@@ -8247,8 +8247,9 @@ function _M0FP38weopqrst19mooncassette_2ddemo4main16render__diagnose(state) {
     return `<p class=\"verdict bad\">请求解析失败：<code>${_M0FP38weopqrst19mooncassette_2ddemo4main12escape__html(_M0IP016_24default__implPB4Show10to__stringGRP38weopqrst12mooncassette4core13CassetteErrorE(_try_err))}</code></p><p class=\"meta\">请求的形状是 <code>{\"provider\":…,\"model\":…,\"body\":…}</code>。</p>`;
   }
   const policy = state.body_only ? new _M0DTP38weopqrst12mooncassette7matcher11MatchPolicy6Subset(["messages"]) : _M0DTP38weopqrst12mooncassette7matcher11MatchPolicy5Exact__;
+  const _tmp = _M0MP38weopqrst12mooncassette4core7Request9normalize(request, undefined);
   const _bind$3 = loaded.cassette.interactions;
-  const diagnosis = _M0FP38weopqrst12mooncassette7matcher8diagnose(request, new _M0TPB9ArrayViewGRP38weopqrst12mooncassette4core11InteractionE(_bind$3, 0, _bind$3.length), policy, 0, _M0FP38weopqrst19mooncassette_2ddemo4main16render__diagnoseN6constrS348);
+  const diagnosis = _M0FP38weopqrst12mooncassette7matcher8diagnose(_tmp, new _M0TPB9ArrayViewGRP38weopqrst12mooncassette4core11InteractionE(_bind$3, 0, _bind$3.length), policy, 0, _M0FP38weopqrst19mooncassette_2ddemo4main16render__diagnoseN6constrS349);
   const out = _M0MPB13StringBuilder21StringBuilder_2einner(0);
   _M0IPB13StringBuilderPB6Logger13write__string(out, "<h2>未命中诊断</h2><p class=\"meta\">对 <code>");
   _M0IPB13StringBuilderPB6Logger13write__string(out, _M0FP38weopqrst19mooncassette_2ddemo4main12escape__html(loaded.label));
@@ -8260,13 +8261,13 @@ function _M0FP38weopqrst19mooncassette_2ddemo4main16render__diagnose(state) {
     _M0IPB13StringBuilderPB6Logger13write__string(out, "<table class=\"rows\"><thead><tr><th>#</th><th>provider / model</th><th>差异路径</th></tr></thead><tbody>");
     const _bind$4 = diagnosis.candidates;
     const _bind$5 = _bind$4.length;
-    let _tmp = 0;
+    let _tmp$2 = 0;
     while (true) {
-      const _ = _tmp;
+      const _ = _tmp$2;
       if (_ < _bind$5) {
         const candidate = _bind$4[_];
         _M0IPB13StringBuilderPB6Logger13write__string(out, `<tr><td>${_M0MPC13int3Int18to__string_2einner(candidate.index, 10)}</td><td><code>${_M0FP38weopqrst19mooncassette_2ddemo4main12escape__html(candidate.provider)}</code> / <code>${_M0FP38weopqrst19mooncassette_2ddemo4main12escape__html(candidate.model)}</code></td><td><code>${_M0FP38weopqrst19mooncassette_2ddemo4main19join__escaped__html(candidate.differing_paths)}</code></td></tr>`);
-        _tmp = _ + 1 | 0;
+        _tmp$2 = _ + 1 | 0;
         continue;
       } else {
         break;
@@ -8386,7 +8387,8 @@ function _M0FP38weopqrst19mooncassette_2ddemo4main16render__sanitize(state) {
   if (before === after) {
     _M0IPB13StringBuilderPB6Logger13write__string(out, "<p class=\"verdict ok\">两份完全一致：这份录制里没有出现敏感字段。</p>");
   } else {
-    _M0IPB13StringBuilderPB6Logger13write__string(out, `<p class=\"verdict ok\">已抹除 <strong>${_M0MPC13int3Int18to__string_2einner(before.length - after.length | 0, 10)}</strong> 个字符的敏感内容。</p>`);
+    const delta = before.length - after.length | 0;
+    _M0IPB13StringBuilderPB6Logger13write__string(out, `<p class=\"verdict ok\">已抹除敏感内容：${delta > 0 ? `文本缩短 <strong>${_M0MPC13int3Int18to__string_2einner(delta, 10)}</strong> 个字符` : `占位符比原值长，文本增加 <strong>${_M0MPC13int3Int18to__string_2einner(0 - delta | 0, 10)}</strong> 个字符`}。</p>`);
   }
   return out.val;
 }
@@ -8478,7 +8480,7 @@ function _M0FP38weopqrst19mooncassette_2ddemo4main11apply__hash(state, hash) {
     }
     case "detail": {
       _M0FP38weopqrst19mooncassette_2ddemo4main14ensure__sample(state);
-      state.detail = _M0FP38weopqrst19mooncassette_2ddemo4main11apply__hashN6constrS349;
+      state.detail = _M0FP38weopqrst19mooncassette_2ddemo4main11apply__hashN6constrS350;
       state.view = 1;
       return;
     }

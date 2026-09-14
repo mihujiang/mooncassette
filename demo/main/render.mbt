@@ -1,7 +1,7 @@
 // mooncassette Demo —— 渲染。
 //
 // 渲染是**纯函数**：状态进去，HTML 字符串出来。没有浏览器也能断言，因此
-// 「点一下之后界面变成什么」可以被测试钉住（见 render_test.mbt）。
+// 「点一下之后界面变成什么」可以被测试钉住（见 logic_wbtest.mbt）。
 // 浏览器里手动点一遍不算验证 —— 它不可重复，也不会在改动后自动重跑。
 
 ///|
@@ -343,8 +343,15 @@ fn render_diagnose(state : AppState) -> String {
   } else {
     @matcher.MatchPolicy::Exact
   }
+  // 先规范化，与真正的回放路径保持一致。
+  //
+  // `@matcher.diagnose` 只做比对，不做规范化 —— 那是 `@recorder.Session` 的职责
+  // （matcher 的文档里就写着「易变字段会盖住真正的原因，Session::diagnose 已经代劳」）。
+  // Demo 直接调用 matcher，所以必须自己补上这一步：否则一条带 `request_id` 之类
+  // 易变字段的请求会被判成「不匹配」，而同一份 cassette 在真实回放里其实是命中的 ——
+  // 那这个页面就教出了错误的结论。
   let diagnosis = @matcher.diagnose(
-    request,
+    request.normalize(),
     loaded.cassette.interactions[:],
     policy,
     0,
@@ -423,10 +430,20 @@ fn render_sanitize(state : AppState) -> String {
       "<p class=\"verdict ok\">两份完全一致：这份录制里没有出现敏感字段。</p>",
     )
   } else {
+    // 差值可能为负：占位符 `***REDACTED***` 有 14 个字符，比某些短密钥更长。
+    // 直接打印差值会得到「已抹除 -13 个字符」—— 它看起来像一个 bug，而这里的确
+    // 曾经是。既然展示的是「抹掉了什么」，就得把两个方向都说清楚。
+    let delta = before.length() - after.length()
     out.write_string(
-      "<p class=\"verdict ok\">已抹除 <strong>" +
-      (before.length() - after.length()).to_string() +
-      "</strong> 个字符的敏感内容。</p>",
+      "<p class=\"verdict ok\">已抹除敏感内容：" +
+      (if delta > 0 {
+        "文本缩短 <strong>" + delta.to_string() + "</strong> 个字符"
+      } else {
+        "占位符比原值长，文本增加 <strong>" +
+        (0 - delta).to_string() +
+        "</strong> 个字符"
+      }) +
+      "。</p>",
     )
   }
   out.to_string()

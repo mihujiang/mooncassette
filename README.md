@@ -232,9 +232,9 @@ let response = match session.try_replay(request) {
 | 指标 | 值 | 复算方式 |
 |---|---|---|
 | 库包 | 12 个（含门面包） | `moon info`，或各目录下的 `pkg.generated.mbti` |
-| 生产代码 | 5,996 行 | 排除 `*_test.mbt` / `*_wbtest.mbt` |
-| 测试代码 | 4,638 行 | 同上两组之和 |
-| 测试 | 291 个，`wasm-gc` 与 `js` 各跑一遍 | `moon test --target wasm-gc` / `--target js` |
+| 生产代码 | 6,214 行 | 排除 `*_test.mbt` / `*_wbtest.mbt`（含示例与 CLI） |
+| 测试代码 | 4,781 行 | 两类测试文件之和 |
+| 测试 | 296 个，`wasm-gc` 与 `js` 各跑一遍 | `moon test --target wasm-gc` / `--target js` |
 | 对抗性用例 | 篡改 20 条 + 脱敏 300 组随机结构 + 解析器 600 组随机输入 + 形状 12 条 | `codec/tamper_test.mbt`、`sanitize/leak_test.mbt`、`stream/fuzz_test.mbt`、`codec/shape_test.mbt` |
 | 演示模块 | 5 个视图；12 个白盒测试 + 端到端冒烟 | `demo/` |
 
@@ -244,7 +244,9 @@ let response = match session.try_replay(request) {
 - 紧凑编码比 2 空格缩进省 **46%**；
 - 每条记录的开销从 10 条到 1000 条保持稳定，说明增长是线性的。
 
-**吞吐**（取决于机器与后端，只有同机前后对比才有意义）：
+**吞吐**（取决于机器与后端）：下表来自**一次**实测。同一台机器上重跑，绝对值会有
+约 ±30% 的波动（机器负载所致，与代码无关），因此真正稳定可比的是**数量级与比值** ——
+例如「未命中 27 毫秒 vs 命中 32 微秒」这个约三个数量级的差距，才是索引的意义所在。
 
 | 操作 | js | wasm-gc |
 |---|---|---|
@@ -366,7 +368,7 @@ test "no behavioural drift since the recording was accepted" {
   "format": "mooncassette",
   "version": 2,
   "meta": {
-    "generator": "mooncassette/0.4.0",
+    "generator": "mooncassette/0.5.0",
     "name": "chat-demo",
     "recorded_at": "2026-09-12T08:00:00Z"
   },
@@ -628,7 +630,7 @@ moon check --target js
 moon fmt && moon info
 ```
 
-当前 **291 个测试全部通过**，覆盖十二个包，且在 `wasm-gc` 与 `js` 两个目标上各跑一遍。
+当前 **296 个测试全部通过**，覆盖十二个包，且在 `wasm-gc` 与 `js` 两个目标上各跑一遍。
 `examples/benchmarks` 另外打印一组**规模指标**（确定性，只取决于数据本身）与一组
 **时间指标**（取决于机器与后端）：把两者分开，是为了避免「CI 机器今天有多忙」变成
 一条会漂移的断言。
@@ -716,6 +718,7 @@ moon fmt && moon info
 | `0.2.0` | 漂移检测（`drift` 包 + `mooncassette diff`）；示例演示「模型换版本后行为漂移」的完整闭环 |
 | `0.3.0` | 协议适配与未命中诊断：`providers`（OpenAI / Anthropic）、`Session::record` 手动录入路径（异步客户端的接入方式）、`Session::diagnose` 与可读的未命中消息；修复顺序模式耗尽被误报为 `NoMatch`、`generator_id` 与模块版本脱钩 |
 | `0.4.0` | 流式响应：SSE 帧解析、OpenAI / Anthropic 增量聚合、以及回放侧的逐帧重放（`Session::replay_stream`）；`cost` 成本核算；CLI 新增 `cost` 与 `explain`。新增 `stream` 与 `cost` 两个包；cassette 格式版本升到 2，读取端兼容 1–2 |
+| `0.5.0` | 「别人能照着用」：CI 接入指南（中英 README 各一节 + 可直接复制的 GitHub Actions 示例）、限流重试示例与脚本化应答序列（`ScriptedReplies`）、基准套件 `examples/benchmarks`（并据此修掉扫描中重复计算指纹的问题：1000 条记录未命中 **18.8 ms → 22 µs**，会话回放 **1.9 ms → 70 µs**）、可视化 Demo（5 个视图 + 截图）、异步适配层（独立模块）、CLI 新增 `tokens`；另修正若干「文档与实现不符」之处（`FingerprintOnly` 被误称为性能逃生通道、`replay_session` 的参数名、SSE 起始行判据） |
 
 ---
 

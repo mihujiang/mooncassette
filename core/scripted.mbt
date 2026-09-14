@@ -19,9 +19,11 @@
 ///
 /// 与之配套的是「重试后成功」这类序列（例如先 429 再 200）：它让**重试路径
 /// 本身**也能被离线回归，而不只是被测试到「最终成功」。
-pub(all) struct ScriptedReplies[T] {
-  replies : Array[T]
-  mut next : Int
+/// 字段是 `priv` 的：`next` 若可被外部写成负数，`take()` 就会用负下标取数组，
+/// 那是越界崩溃而不是「行为不同」。取值状态是本类型的全部内容，因此由它自己管。
+pub struct ScriptedReplies[T] {
+  priv replies : Array[T]
+  priv mut next : Int
 }
 
 ///|

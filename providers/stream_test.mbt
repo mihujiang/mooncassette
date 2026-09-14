@@ -145,6 +145,35 @@ test "unparseable lines inside a stream do not break aggregation" {
 }
 
 ///|
+test "a usage-only chunk without a choices field still contributes usage" {
+  // 官方 usage chunk 带的是 `"choices": []`（字段在、数组为空），因此会走正常路径；
+  // 但网关可能发出**完全没有 `choices` 字段**的用量帧。若先按「没有 choices ⇒ 错误体」
+  // 提前返回，那一帧的用量就被丢掉了 —— 丢用量不会报错，只会让成本少算。
+  let body = sse([
+    "{\"id\":\"c1\",\"model\":\"gpt-4o\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"},\"finish_reason\":\"stop\"}]}",
+    "{\"id\":\"c1\",\"model\":\"gpt-4o\",\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":3,\"total_tokens\":10}}",
+  ])
+  let response = decode_openai_stream_response(HttpResponse::new(200, body))
+  match response.usage {
+    Some(usage) => {
+      assert_eq(usage.input_tokens, 7)
+      assert_eq(usage.output_tokens, 3)
+    }
+    None =>
+      fail("usage must survive a chunk that carries no `choices` field at all")
+  }
+  // 该帧没有被误当成错误体：最终结果仍是正常聚合出来的 completion。
+  assert_true(
+    same_json(
+      response.body,
+      @json.parse(
+        "{\"id\":\"c1\",\"model\":\"gpt-4o\",\"object\":\"chat.completion\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"hi\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":7,\"completion_tokens\":3,\"total_tokens\":10}}",
+      ),
+    ),
+  )
+}
+
+///|
 test "anthropic named events aggregate into a message body" {
   let body = sse_named([
     (
@@ -183,6 +212,68 @@ test "anthropic named events aggregate into a message body" {
     None =>
       fail("expected usage to be combined across message_start/message_delta")
   }
+}
+
+///|
+test "anthropic aggregation keeps provider-specific usage fields" {
+  // 非流式响应的 `usage` 不止两个计数字段：开了 prompt caching 还会有
+  // `cache_read_input_tokens` / `cache_creation_input_tokens`（成本核算要用）。
+  // 聚合体若只写两个字段，就与「与非流式同形」这条承诺不符。
+  let body = sse_named([
+    (
+      "message_start", "{\"type\":\"message_start\",\"message\":{\"id\":\"m\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude\",\"content\":[],\"usage\":{\"input_tokens\":12,\"output_tokens\":1,\"cache_read_input_tokens\":100,\"cache_creation_input_tokens\":2}}}",
+    ),
+    (
+      "content_block_start", "{\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}",
+    ),
+    (
+      "content_block_delta", "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}",
+    ),
+    (
+      "message_delta", "{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":5}}",
+    ),
+  ])
+  let response = decode_anthropic_stream_response(HttpResponse::new(200, body))
+  assert_true(
+    same_json(
+      response.body,
+      @json.parse(
+        "{\"id\":\"m\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude\",\"content\":[{\"type\":\"text\",\"text\":\"hi\"}],\"stop_reason\":\"end_turn\",\"usage\":{\"input_tokens\":12,\"output_tokens\":5,\"cache_read_input_tokens\":100,\"cache_creation_input_tokens\":2}}",
+      ),
+    ),
+  )
+  match response.usage {
+    Some(usage) => assert_eq(usage.output_tokens, 5)
+    None => fail("usage should still be extracted from message_delta")
+  }
+}
+
+///|
+test "an unknown content block type is passed through verbatim" {
+  // `redacted_thinking`、各类服务端工具结果这类 block 在 start 帧里就是完整的、
+  // 没有后续增量。若一律按 `text` 重建，它们在聚合体里会变成空壳 ——
+  // 内容静默消失，而原始帧还在，排查时更看不出问题在哪。
+  let body = sse_named([
+    (
+      "message_start", "{\"type\":\"message_start\",\"message\":{\"id\":\"m2\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude\",\"content\":[]}}",
+    ),
+    (
+      "content_block_start", "{\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"redacted_thinking\",\"data\":\"EroBCk\"}}",
+    ),
+    ("content_block_stop", "{\"type\":\"content_block_stop\",\"index\":0}"),
+    (
+      "message_delta", "{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":3}}",
+    ),
+  ])
+  let response = decode_anthropic_stream_response(HttpResponse::new(200, body))
+  assert_true(
+    same_json(
+      response.body,
+      @json.parse(
+        "{\"id\":\"m2\",\"type\":\"message\",\"role\":\"assistant\",\"model\":\"claude\",\"content\":[{\"type\":\"redacted_thinking\",\"data\":\"EroBCk\"}],\"stop_reason\":\"end_turn\",\"usage\":{\"input_tokens\":0,\"output_tokens\":3}}",
+      ),
+    ),
+  )
 }
 
 ///|

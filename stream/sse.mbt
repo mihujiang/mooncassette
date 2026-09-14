@@ -18,8 +18,12 @@ priv struct SseState {
 ///|
 /// 判断一段响应体是否是 SSE 事件流。
 ///
-/// 判据：第一个非空行以 `data:`、`event:` 或 `:`（注释行）开头。
+/// 判据：第一个非空行以 `data:`、`event:`、`id:`、`retry:` 或 `:`（注释行）开头。
 /// JSON 响应体以 `{` 或 `[` 开头，HTML 错误页以 `<` 开头，都不会误判。
+///
+/// `id:` / `retry:` 也列入判据：它们是规范允许的起始字段（虽然 OpenAI 与 Anthropic
+/// 都不用），漏掉它们会让一条流被当成非流式响应、只能按原始文本录下来 —— 帧就丢了，
+/// 而丢帧不会报错。
 ///
 /// 之所以要按下议内容判断，是因为 `HttpResponse` 只带状态码与响应体、
 /// 没有响应头，无法从 `Content-Type` 区分流式与非流式。
@@ -31,7 +35,9 @@ pub fn looks_like_event_stream(text : StringView) -> Bool {
   }
   chars[start] == ':' ||
   starts_with_at(chars, start, "data:") ||
-  starts_with_at(chars, start, "event:")
+  starts_with_at(chars, start, "event:") ||
+  starts_with_at(chars, start, "id:") ||
+  starts_with_at(chars, start, "retry:")
 }
 
 ///|
@@ -43,7 +49,13 @@ pub fn looks_like_event_stream(text : StringView) -> Bool {
 /// - 行内第一个冒号之前是字段名；冒号后的**一个**前导空格被去掉，其余原样保留；
 /// - 没有冒号的行视为「字段名 = 整行、值为空串」；
 /// - 同一帧内的多个 `data:` 行以 `\n` 连接；
-/// - 空行表示「派发当前帧」；数据为空时不派发；
+/// - 空行表示「派发当前帧」；**没有任何 `data:` 行**时不派发；
+///
+/// 与规范的唯一偏离：规范规定「数据缓冲区为空字符串时不派发」，因此 `data:` 行存在、
+/// 内容却是空串时它不会派发，而本实现会派发出一个 `data: ""` 帧。这样选择有两个理由：
+/// 一是录制方的职责是如实记录服务端发出的内容（空数据事件是合法的，常被用作心跳），
+/// 二是它保住了 `parse(render(frames)) == frames` 这条往返性质 —— 若在此丢弃，
+/// 渲染侧就再也无法表示「一个空数据帧」。
 /// - 以 `:` 开头的是注释，忽略；
 /// - `id` / `retry` 与未知字段一律忽略（它们是重连元数据，不是模型输出）；
 /// - **末尾没有空行时，仍在缓冲的帧按规范丢弃**。

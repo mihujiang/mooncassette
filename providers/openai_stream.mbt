@@ -4,6 +4,9 @@
 // `chat.completion` 同形**的对象。这样做的意义在于——匹配、漂移检测、
 // 成本核算、以及应用代码都不必区分「流式」与「非流式」两种形态。
 //
+// 「同形」有一处刻意的例外：聚合出的工具调用会带上 `index`，而非流式响应里
+// 没有这个字段。保留它是因为它来自流本身；对齐两者时需要注意这一处差异。
+//
 // 帧本身仍然完整保留在 `Response.stream` 里，供需要逐帧重放的回放场景使用。
 
 ///|
@@ -124,15 +127,12 @@ fn absorb_openai(acc : OpenAiStream, frame : @core.StreamFrame) -> Unit {
     Some(value) => value
     None => return
   }
-  if fields.get("choices") is None {
-    // 没有 `choices` 的对象只可能是错误体，直接作为最终结果保留。
-    match fields.get("error") {
-      Some(_) => acc.error_body = Some(payload)
-      None => ()
-    }
-    return
-  }
   // 元信息取首次出现值：后续 chunk 里这些字段通常缺席，或原样重复。
+  //
+  // 先于 `choices` 的判定来处理元信息与 usage：官方 usage chunk 带的是
+  // `"choices": []`（空数组，字段仍在），因此会走到下面的正常路径；而某些网关
+  // 会发出**完全没有 `choices` 字段**的 usage chunk，若先按「没有 choices」
+  // 提前返回，那一帧的用量就被丢掉了 —— 用量丢失不会报错，只会让成本少算。
   for key in ["id", "model", "created", "system_fingerprint"] {
     if acc.meta.get(key) is None {
       match fields.get(key) {
@@ -150,6 +150,14 @@ fn absorb_openai(acc : OpenAiStream, frame : @core.StreamFrame) -> Unit {
         None => ()
       }
     None => ()
+  }
+  if fields.get("choices") is None {
+    // 没有 `choices` 的对象只可能是错误体，直接作为最终结果保留。
+    match fields.get("error") {
+      Some(_) => acc.error_body = Some(payload)
+      None => ()
+    }
+    return
   }
   match fields.get("choices") {
     Some(Array(items)) =>

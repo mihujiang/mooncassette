@@ -22,8 +22,12 @@
 /// 不变量：`fingerprints` 与对应的记录**逐位对齐**。一旦错位，匹配就会指向
 /// 错误的记录，而这个错误不会表现为崩溃，只会表现为「回放出了另一个响应」，
 /// 极难追查。因此本类型只提供两种修改方式：整体重建，或在**末尾**追加。
-pub(all) struct MatchIndex {
-  fingerprints : Array[String]
+///
+/// 字段是 `priv` 的：若可公开构造，上面这条不变量就只是注释里的一句话，
+/// 任何人都能造一个与记录无关的索引塞进 `find_match`。这里的可见性就是那条
+/// 不变量的执行者。需要读取时用 `length()`。
+pub struct MatchIndex {
+  priv fingerprints : Array[String]
 } derive(Eq)
 
 ///|

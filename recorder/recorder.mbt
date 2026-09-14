@@ -44,21 +44,21 @@ pub(all) struct Stats {
 /// 「同一请求被录制多次」的场景。`Auto` 模式下每次新录制都会把
 /// 游标推到末尾。
 pub struct Session {
-  mut mode : Mode
-  cassette : @core.Cassette
-  mut cursor : Int
-  mut hits : Int
-  mut misses : Int
-  mut recorded : Int
-  transport : &Transport?
-  policy : @matcher.MatchPolicy
-  sanitize : @sanitize.SanitizePolicy
+  priv mut mode : Mode
+  priv cassette : @core.Cassette
+  priv mut cursor : Int
+  priv mut hits : Int
+  priv mut misses : Int
+  priv mut recorded : Int
+  priv transport : &Transport?
+  priv policy : @matcher.MatchPolicy
+  priv sanitize : @sanitize.SanitizePolicy
   /// 指纹索引的缓存。`None` 表示尚未建立。
   ///
   /// 缓存在会话上而不是 cassette 上：索引是「为某次扫描服务」的派生数据，
   /// 而 cassette 是要落盘的**数据本身**——把派生数据塞进它，序列化就需要
   /// 额外解释「这个字段要不要写进文件」，得不偿失。
-  mut match_index : @matcher.MatchIndex?
+  priv mut match_index : @matcher.MatchIndex?
 }
 
 ///|

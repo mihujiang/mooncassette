@@ -22,6 +22,13 @@ priv struct BlockAcc {
   mut tool_name : String?
   /// `input_json_delta` 的 `partial_json` 拼接结果。
   mut partial_json : String
+  /// `content_block_start` 里的**原始** content_block 对象。
+  ///
+  /// 只为未知类型保留。Anthropic 会持续新增 block 类型（`redacted_thinking`、
+  /// 各类服务端工具结果……），它们在 start 帧里就完整给出、没有后续增量；
+  /// 若对未知类型一律退化成 `{"type": X, "text": ""}`，聚合体就会**静默丢掉
+  /// 整块内容** —— 而聚合体的用途正是「不必区分流式与非流式」。
+  mut raw : Json?
 }
 
 ///|
@@ -106,7 +113,11 @@ fn absorb_anthropic(acc : AnthropicStream, frame : @core.StreamFrame) -> Unit {
   if kind == "content_block_start" {
     let block = block_for(acc.blocks, int_field_or(fields, "index", 0))
     match nested_object(fields, "content_block") {
-      Some(content) => absorb_block_start(block, content)
+      Some(content) => {
+        // 原样留一份：已知类型按增量语义重建，未知类型直接用它。
+        block.raw = Some(Json::object(content))
+        absorb_block_start(block, content)
+      }
       None => ()
     }
     return
@@ -232,6 +243,7 @@ fn block_for(blocks : Array[BlockAcc], index : Int) -> BlockAcc {
     tool_id: None,
     tool_name: None,
     partial_json: "",
+    raw: None,
   }
   blocks.push(fresh)
   fresh
@@ -285,7 +297,29 @@ fn anthropic_stream_body(acc : AnthropicStream) -> Json {
     Some(sequence) => out.set("stop_sequence", Json::string(sequence))
     None => ()
   }
+  // 以 `message_start` 里那个 usage 对象为**底**，再覆盖两个计数字段。
+  //
+  // 只写两个字段会丢掉其它用量信息（例如 prompt caching 的
+  // `cache_creation_input_tokens` / `cache_read_input_tokens`），而非流式响应的
+  // `usage` 里带着它们 —— 「聚合体与非流式同形」这条承诺就落在这里。
+  //
+  // 覆盖是必须的：`message_start` 里的 `output_tokens` 只是个占位值，
+  // 真实值要到 `message_delta` 才出现。
   let usage : Map[String, Json] = Map([])
+  match acc.message.get("usage") {
+    Some(value) =>
+      match as_object(value) {
+        Some(fields) =>
+          for key in fields.keys() {
+            match fields.get(key) {
+              Some(field) => usage.set(key, field)
+              None => ()
+            }
+          }
+        None => ()
+      }
+    None => ()
+  }
   usage.set(
     "input_tokens",
     json_int(
@@ -342,8 +376,17 @@ fn block_json(block : BlockAcc) -> Json {
     if block.signature != "" {
       fields.set("signature", Json::string(block.signature))
     }
-  } else {
+  } else if kind == "text" {
     fields.set("text", Json::string(block.text))
+  } else {
+    // 未知类型：原样吐回 `content_block_start` 里的对象。
+    //
+    // 这类 block（`redacted_thinking`、各种服务端工具结果）在 start 帧里就是完整的，
+    // 没有增量可累积；按 text 重建只会把它们变成 `{"type":X,"text":""}` 这种空壳。
+    match block.raw {
+      Some(value) => return value
+      None => fields.set("text", Json::string(block.text))
+    }
   }
   Json::object(fields)
 }

@@ -239,9 +239,9 @@ Only numbers that **can be reproduced inside this repository**, each with the wa
 | Indicator | Value | How to reproduce |
 |---|---|---|
 | Library packages | 12 (including the facade) | `moon info`, or `pkg.generated.mbti` in each directory |
-| Production code | 5,996 lines | excluding `*_test.mbt` / `*_wbtest.mbt` |
-| Test code | 4,638 lines | the sum of those two groups |
-| Tests | 291, each run on both `wasm-gc` and `js` | `moon test --target wasm-gc` / `--target js` |
+| Production code | 6,214 lines | excluding `*_test.mbt` / `*_wbtest.mbt` (includes examples and the CLI) |
+| Test code | 4,781 lines | the sum of the two test-file groups |
+| Tests | 296, each run on both `wasm-gc` and `js` | `moon test --target wasm-gc` / `--target js` |
 | Adversarial cases | 20 tampering + 300 random sanitizer structures + 600 random parser inputs + 12 shapes | `codec/tamper_test.mbt`, `sanitize/leak_test.mbt`, `stream/fuzz_test.mbt`, `codec/shape_test.mbt` |
 | Demo module | 5 views; 12 white-box tests + an end-to-end smoke test | `demo/` |
 
@@ -251,7 +251,11 @@ Only numbers that **can be reproduced inside this repository**, each with the wa
 - compact encoding saves **46%** over 2-space indentation;
 - the per-interaction cost stays flat from 10 to 1000 interactions, i.e. growth is linear.
 
-**Throughput** (machine- and backend-dependent; only same-machine comparisons mean anything):
+**Throughput** (machine- and backend-dependent): the table below comes from **one** measurement
+run. Re-running on the same machine moves the absolute values by roughly ±30% (machine load, not
+code), so what is genuinely stable and comparable is the **order of magnitude and the ratios** —
+the ~three-orders-of-magnitude gap between "27 ms on a miss vs 32 µs on a hit" is the point of the
+index.
 
 | Operation | js | wasm-gc |
 |---|---|---|
@@ -378,7 +382,7 @@ and can be reviewed as a diff in code review, which is exactly why canonical key
   "format": "mooncassette",
   "version": 2,
   "meta": {
-    "generator": "mooncassette/0.4.0",
+    "generator": "mooncassette/0.5.0",
     "name": "chat-demo",
     "recorded_at": "2026-09-12T08:00:00Z"
   },
@@ -660,7 +664,7 @@ moon check --target js
 moon fmt && moon info
 ```
 
-**All 291 tests pass**, covering twelve packages, each run on both `wasm-gc` and `js`.
+**All 296 tests pass**, covering twelve packages, each run on both `wasm-gc` and `js`.
 `examples/benchmarks` additionally prints a set of **size metrics** (deterministic, dependent only on
 the data) and a set of **timing metrics** (dependent on the machine and backend): kept apart so that
 "how busy the CI machine was today" never becomes an assertion that drifts. The point is not
@@ -776,6 +780,7 @@ their own IO (the examples and CLI in this repository use `moonbitlang/x`, which
 | `0.2.0` | Drift detection (`drift` package plus `mooncassette diff`); examples demonstrating the full loop from "model version changed" to a readable drift report |
 | `0.3.0` | Provider adapters and miss diagnostics: `providers` (OpenAI / Anthropic), the `Session::record` manual path for async clients, `Session::diagnose` and a readable no-match message; fixes sequential exhaustion being reported as `NoMatch`, and `generator_id` having drifted from the module version |
 | `0.4.0` | Streaming responses: SSE frame parsing, OpenAI / Anthropic delta aggregation, and frame-level replay (`Session::replay_stream`); `cost` accounting; the `cost` and `explain` CLI subcommands. Adds the `stream` and `cost` packages; cassette format version raised to 2, with readers accepting 1–2 |
+| `0.5.0` | "Others can follow it": a CI integration guide (a section in each README plus a copy-ready GitHub Actions workflow), a rate-limit retry example with scripted reply sequences (`ScriptedReplies`), the `examples/benchmarks` suite — which exposed and fixed repeated fingerprint computation during scans (1000-record miss **18.8 ms → 22 µs**, session replay **1.9 ms → 70 µs**) — a visual demo (5 views plus screenshots), an async adapter module, and a new `tokens` CLI subcommand. Also corrects several places where the docs disagreed with the code (calling `FingerprintOnly` a performance escape hatch, the `replay_session` parameter name, the SSE first-line heuristic) |
 
 ---
 

@@ -20,6 +20,10 @@ pub(all) enum MatchPolicy {
   /// 子集：只比较请求体顶层的指定字段，其余字段一律忽略。
   ///
   /// 适用于「只要 prompt 一致就算同一次调用」这类场景。
+  ///
+  /// 放宽的范围**仅限请求体**：`provider` 与 `model` 仍然必须相同。
+  /// 换了模型就不再是同一次调用，把它也算进「可忽略」会让两个不同模型的
+  /// 记录互相误命中 —— 而那种错误是静默的。
   Subset(Array[String])
   /// 顺序：不做任何请求比对，按录制顺序依次消费。
   ///
@@ -80,6 +84,9 @@ pub(all) struct MatchResult {
 ///
 /// `index` 可选：传入 `MatchIndex` 可复用已算好的指纹（见 `MatchIndex` 的说明）。
 /// 省略时逐条现算，结果完全一致，只是慢。重复查询同一份 cassette 时应当传入。
+///
+/// 传入的索引只在**条数与这批记录相同**时才被采用；否则忽略它并逐条现算。
+/// 见下方 `usable_index` 处的说明。
 pub fn find_match(
   request : @core.Request,
   interactions : ArrayView[@core.Interaction],
@@ -91,6 +98,20 @@ pub fn find_match(
   if total == 0 {
     return None
   }
+  // 条数对不上就丢掉索引，改用逐条现算。
+  //
+  // 这不是防御性冗余：索引短一截会在取指纹时越界；而条数**恰好相同、内容不同**
+  // 时连越界都不会发生 —— 它只会匹配到错误的记录，也就是「回放出了另一个响应」。
+  // 现算慢，但答案一定对；而错误答案没有任何代价上限。
+  let usable_index = match index {
+    Some(built) =>
+      if built.aligned_with(interactions) {
+        Some(built)
+      } else {
+        None
+      }
+    None => None
+  }
   match policy {
     // 顺序模式**不做**游标归一：游标越界即代表录制已耗尽，
     // 必须如实报告，否则「录制覆盖不足」会被悄悄掩盖。
@@ -101,13 +122,18 @@ pub fn find_match(
         None
       }
     Exact =>
-      search_by_text(request, interactions, clamp_cursor(cursor, total), index)
+      search_by_text(
+        request,
+        interactions,
+        clamp_cursor(cursor, total),
+        usable_index,
+      )
     FingerprintOnly =>
       search_by_fingerprint(
         request,
         interactions,
         clamp_cursor(cursor, total),
-        index,
+        usable_index,
       )
     Subset(keys) =>
       search_by_subset(request, interactions, clamp_cursor(cursor, total), keys)

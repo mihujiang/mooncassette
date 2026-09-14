@@ -13,12 +13,13 @@ import {
 
 // Types and methods
 pub struct MockTransport {
-  scripted : Map[String, @core.Response]
+  scripted : Map[String, @core.ScriptedReplies[@core.Response]]
   mut calls : Int
 }
 pub fn MockTransport::call_count(Self) -> Int
 pub fn MockTransport::new() -> Self
 pub fn MockTransport::on(Self, @core.Request, @core.Response) -> Unit
+pub fn MockTransport::on_sequence(Self, @core.Request, Array[@core.Response]) -> Unit
 pub impl Transport for MockTransport
 
 pub(all) enum Mode {
@@ -28,15 +29,7 @@ pub(all) enum Mode {
 } derive(Eq)
 
 pub struct Session {
-  mut mode : Mode
-  cassette : @core.Cassette
-  mut cursor : Int
-  mut hits : Int
-  mut misses : Int
-  mut recorded : Int
-  transport : &Transport?
-  policy : @matcher.MatchPolicy
-  sanitize : @sanitize.SanitizePolicy
+  // private fields
 }
 pub fn Session::cassette(Self) -> @core.Cassette
 pub fn Session::cursor(Self) -> Int

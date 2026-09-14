@@ -29,7 +29,12 @@ pub async fn replay_or_record(
   match session.try_replay(request) {
     Some(response) => response
     None => {
-      let outgoing = protocol.encode(request)
+      // 发出去的是 `normalize()` 之后的请求 —— 与 `Session::send` 完全同一步。
+      //
+      // 这一句不是可有可无的清理：同步路径把「规范化后的请求」交给 Transport 是
+      // 它文档里写明的不变量，异步路径若原样编码，两条链路发到网上的字节就会不同，
+      // 「共用同一条派生链」也就只剩下文档里的一行字。
+      let outgoing = protocol.encode(request.normalize())
       let incoming = send_http(outgoing)
       let response = protocol.decode(incoming)
       // 交给 Session 落盘：它会施加与自动录制完全相同的脱敏与规范化。

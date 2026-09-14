@@ -1,12 +1,11 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "weopqrst/mooncassette/cmd/main"
+package "weopqrst/mooncassette/examples/rate_limit_retry"
 
 // Values
 
 // Errors
 
 // Types and methods
-type TokenRow
 
 // Type aliases
 

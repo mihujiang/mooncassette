@@ -1,12 +1,14 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "weopqrst/mooncassette/cmd/main"
+package "weopqrst/mooncassette/examples/benchmarks"
 
 // Values
 
 // Errors
 
 // Types and methods
-type TokenRow
+type Accumulator
+
+type Row
 
 // Type aliases
 

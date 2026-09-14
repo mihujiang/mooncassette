@@ -106,6 +106,18 @@ test "a leading BOM does not hide the first field" {
 }
 
 ///|
+test "a stream whose first line is id or retry is still recognised as SSE" {
+  // `id` / `retry` 都是规范允许的起始字段（虽然 OpenAI 与 Anthropic 都不用）。
+  // 漏判的后果不是报错：整条流会被当成非流式响应、按原始文本录下来，帧全部丢失，
+  // 而回放依然「成功」—— 只是 `replay_stream` 再也拿不到帧。
+  assert_true(@stream.looks_like_event_stream("id: 7\ndata: a\n\n"))
+  assert_true(@stream.looks_like_event_stream("retry: 1000\n\ndata: a\n\n"))
+  // 反向仍须成立：放开判据不能把 JSON / HTML 误判成事件流。
+  assert_false(@stream.looks_like_event_stream("{\"a\":1}"))
+  assert_false(@stream.looks_like_event_stream("<html>502 Bad Gateway</html>"))
+}
+
+///|
 test "an empty stream yields no frames" {
   assert_eq(@stream.parse("").length(), 0)
 }

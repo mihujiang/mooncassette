@@ -8,7 +8,7 @@ import {
 // Values
 pub fn diagnose(@core.Request, ArrayView[@core.Interaction], MatchPolicy, Int, top? : Int) -> Diagnosis
 
-pub fn find_match(@core.Request, ArrayView[@core.Interaction], MatchPolicy, Int) -> MatchResult? raise @core.CassetteError
+pub fn find_match(@core.Request, ArrayView[@core.Interaction], MatchPolicy, Int, index? : MatchIndex) -> MatchResult? raise @core.CassetteError
 
 pub fn is_exhausted(MatchPolicy, Int, Int) -> Bool
 
@@ -31,6 +31,14 @@ pub(all) struct Diagnosis {
 pub fn Diagnosis::hint(Self) -> String
 pub fn Diagnosis::lines(Self) -> Array[String]
 
+pub struct MatchIndex {
+  // private fields
+} derive(Eq)
+pub fn MatchIndex::aligned_with(Self, ArrayView[@core.Interaction]) -> Bool
+pub fn MatchIndex::build(ArrayView[@core.Interaction]) -> Self
+pub fn MatchIndex::length(Self) -> Int
+pub fn MatchIndex::push(Self, @core.Interaction) -> Unit
+
 pub(all) enum MatchPolicy {
   Exact
   FingerprintOnly
@@ -38,6 +46,7 @@ pub(all) enum MatchPolicy {
   Sequential
 } derive(Eq)
 pub fn MatchPolicy::name(Self) -> String
+pub fn MatchPolicy::scans_by_fingerprint(Self) -> Bool
 
 pub(all) struct MatchResult {
   index : Int

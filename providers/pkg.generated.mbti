@@ -98,12 +98,13 @@ pub fn ProviderTransport::protocol_name(Self) -> String
 pub impl @recorder.Transport for ProviderTransport
 
 pub struct ScriptedHttpSender {
-  scripted : Map[String, HttpResponse]
+  scripted : Map[String, @core.ScriptedReplies[HttpResponse]]
   mut calls : Int
 }
 pub fn ScriptedHttpSender::call_count(Self) -> Int
 pub fn ScriptedHttpSender::new() -> Self
 pub fn ScriptedHttpSender::on(Self, HttpRequest, HttpResponse) -> Unit
+pub fn ScriptedHttpSender::on_sequence(Self, HttpRequest, Array[HttpResponse]) -> Unit
 pub impl HttpSender for ScriptedHttpSender
 
 // Type aliases

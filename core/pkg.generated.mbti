@@ -75,6 +75,16 @@ pub fn Response::new(Int, Json, usage? : Usage, stream? : Array[StreamFrame]) ->
 pub fn Response::ok(Json, usage? : Usage, stream? : Array[StreamFrame]) -> Self
 pub fn Response::to_json(Self) -> Json
 
+pub struct ScriptedReplies[T] {
+  // private fields
+}
+pub fn[T] ScriptedReplies::consumed(Self[T]) -> Int
+pub fn[T] ScriptedReplies::is_spent(Self[T]) -> Bool
+pub fn[T] ScriptedReplies::new(Array[T]) -> Self[T]
+pub fn[T] ScriptedReplies::push(Self[T], T) -> Unit
+pub fn[T] ScriptedReplies::remaining(Self[T]) -> Int
+pub fn[T] ScriptedReplies::take(Self[T]) -> T?
+
 pub(all) struct StreamFrame {
   event : String?
   data : String

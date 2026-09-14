@@ -10,5 +10,5 @@ description = "Async adapters for mooncassette: use it with async HTTP clients (
 
 import {
   "moonbitlang/async@0.21.3",
-  "weopqrst/mooncassette@0.4.0",
+  "weopqrst/mooncassette@0.5.0",
 }

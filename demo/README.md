@@ -24,7 +24,7 @@ msedge --headless=new --disable-gpu --hide-scrollbars --window-size=1400,900 \
 
 ## 它是一个独立模块
 
-这里自带 `moon.mod`，用 `moon add weopqrst/mooncassette@0.4.0` 引入本库，而不是
+这里自带 `moon.mod`，用 `moon add weopqrst/mooncassette@0.6.0` 引入本库，而不是
 引用仓库里的本地代码。这不是形式上的讲究 —— `moon.mod` 只接受注册表里带版本号的
 依赖，本地路径依赖不被支持。于是它天然成为「别人真的会 `moon add` 这个包」的证据：
 它就是一个真实的下游消费者。

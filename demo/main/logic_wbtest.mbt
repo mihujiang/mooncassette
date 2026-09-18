@@ -109,6 +109,55 @@ test "the sanitize view hides the raw text until asked" {
 }
 
 ///|
+test "the sanitize view folds a long payload instead of rendering it whole" {
+  // 多模态响应的真实形态：图片 / 音频以一段内联 base64 落在 JSON 字符串里。
+  // 原样渲染出来会把页面撑爆 —— 而页面要回答的恰恰是「这份录制里有什么」，
+  // 几万字符的 base64 只会把它周围真正有信息量的字段挤出屏幕。
+  //
+  // 载荷由 `@payload.encode` 生成，而不是手写一段字母表字符串：判定用的是
+  // 「解码再编码必须逐字节相等」，手写的串未必规范，那样这条测试的前提就变成
+  // 「我以为它像 base64」，而不是「它确实是 base64」。
+  let raw : Array[Byte] = []
+  for i = 0; i < 2048; i = i + 1 {
+    raw.push((i % 251).to_byte())
+  }
+  let blob = @payload.encode(Bytes::from_array(raw[:]))
+  let body : Map[String, Json] = Map([])
+  body.set("model", Json::string("gpt-4o"))
+  body.set("image", Json::string(blob))
+  let text = @codec.encode(
+    @core.Cassette::new(
+      "payload",
+      recorded_at="2026-09-13T00:00:00Z",
+      interactions=[
+        @core.Interaction::new(
+          @core.Request::new("openai", "gpt-4o", Json::object(body)),
+          @core.Response::ok(Json::object({ "content": Json::string("ok") })),
+        ),
+      ],
+    ),
+  )
+  let state = AppState::new()
+  state.load_primary("含大载荷", text)
+  state.view = View::Sanitize
+  state.reveal_raw = true
+  let html = render_app(state)
+  assert_true(html.contains("省略"))
+  assert_false(html.contains(blob))
+  // 折叠只动载荷：同一份文本里的普通字段照旧原样渲染。
+  assert_true(html.contains("gpt-4o"))
+}
+
+///|
+test "folding a payload-free cassette leaves its text exactly as it was" {
+  // 折叠走的是「解析 → 折叠 → 重新排版」，因此必须证明这一步不会顺手改掉排版：
+  // 否则脱敏预览里显示的内容与文件里的内容就对不上了，而它全部的价值就在于
+  // 「所见即落盘」。
+  let text = sample_text()
+  assert_eq(fold_display(text), text)
+}
+
+///|
 test "the diagnose view explains why a request does not match" {
   let state = AppState::new()
   state.load_primary("自带样例", sample_text())

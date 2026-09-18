@@ -5,6 +5,7 @@ import {
   "weopqrst/mooncassette/codec",
   "weopqrst/mooncassette/core",
   "weopqrst/mooncassette/matcher",
+  "weopqrst/mooncassette/payload",
   "weopqrst/mooncassette/sanitize",
 }
 

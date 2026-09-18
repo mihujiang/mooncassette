@@ -396,6 +396,21 @@ fn render_diagnose(state : AppState) -> String {
 }
 
 ///|
+/// 展示用：把 cassette 文本里的载荷折叠掉之后再排版。
+///
+/// 折叠只是让页面好读 —— 它不参与指纹、不参与完整性摘要，也永远不会被写回文件
+/// （语义同 `@payload.fold_json`）。一段内联的 base64 原样渲染出来会把页面撑爆，
+/// 折叠之后才能看见它**周围**真正有信息量的字段。
+///
+/// 解析失败就原样返回：折叠是展示优化，不该因为读不动而让页面变成一片空白。
+fn fold_display(text : String) -> String {
+  let value = @json.parse(text) catch {
+    _ => return text
+  }
+  @canon.to_pretty_string(@payload.fold_json(value))
+}
+
+///|
 /// 脱敏预览：密钥在落盘前被抹成了什么。
 fn render_sanitize(state : AppState) -> String {
   let loaded = match state.primary() {
@@ -417,14 +432,17 @@ fn render_sanitize(state : AppState) -> String {
     "</button><span class=\"meta\">　原文默认隐藏：它可能含真实密钥</span></div>",
   )
   let before_panel = if state.reveal_raw {
-    code_block(before)
+    code_block(fold_display(before))
   } else {
     "<div class=\"empty\"><p class=\"empty-hint\">原文已隐藏。它可能含有真实密钥 —— 而这份文件之所以要拿来脱敏，正是因为有密钥在里面。<br>需要逐字对照时，再点上面的按钮把它显示出来。</p></div>"
   }
   out.write_string("<div class=\"columns\">")
   out.write_string("<div><h3>脱敏前</h3>" + before_panel + "</div>")
-  out.write_string("<div><h3>脱敏后</h3>" + code_block(after) + "</div>")
+  out.write_string("<div><h3>脱敏后</h3>" + code_block(fold_display(after)) + "</div>")
   out.write_string("</div>")
+  out.write_string(
+    "<p class=\"meta\">大段载荷（内联 base64）在这里被折叠显示，页面只保留开头一段，完整内容以文件里的字节为准。折叠不改变上面那句结论 —— 抹除多少是按两边<strong>原文</strong>算出来的。</p>",
+  )
   if before == after {
     out.write_string(
       "<p class=\"verdict ok\">两份完全一致：这份录制里没有出现敏感字段。</p>",

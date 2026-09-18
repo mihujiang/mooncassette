@@ -9,5 +9,5 @@ preferred_target = "js"
 description = "Browser playground for mooncassette: inspect a cassette, compare two recordings for drift, diagnose a miss, and preview sanitization interleaved."
 
 import {
-  "weopqrst/mooncassette@0.5.0",
+  "weopqrst/mooncassette@0.6.0",
 }

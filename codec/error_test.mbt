@@ -67,7 +67,8 @@ test "a missing field is reported with its full path" {
 ///|
 test "a wrong field type is reported with its path and the expected type" {
   let message = decode_error(
-    valid_head + ",\"meta\":{\"name\":1,\"generator\":\"g\"},\"interactions\":[]}",
+    valid_head +
+    ",\"meta\":{\"name\":1,\"generator\":\"g\"},\"interactions\":[]}",
   )
   assert_true(message.contains("$.meta.name"))
   assert_true(message.contains("expected a string"))
@@ -135,7 +136,11 @@ test "every error variant renders with a prefix, a label and its context" {
       "integrity violation",
       "CTX",
     ),
-    (@core.CassetteError::NoMatch("CTX"), "no recorded interaction matches", "CTX"),
+    (
+      @core.CassetteError::NoMatch("CTX"),
+      "no recorded interaction matches",
+      "CTX",
+    ),
     (@core.CassetteError::Exhausted("CTX"), "recording exhausted", "CTX"),
     (@core.CassetteError::MissingTransport("CTX"), "missing transport", "CTX"),
     (@core.CassetteError::TransportFailure("CTX"), "transport failure", "CTX"),
@@ -164,14 +169,12 @@ test "variants that data cannot trigger still render informatively" {
   // 真实的哈希碰撞需要打破 FNV，传输失败来自使用方的 Transport —— 两者都无法
   // 在测试里自然构造。这里只审计它们的输出，并明确这是**输出审计**而不是
   // 端到端触发。
-  let collision = @core
-    .CassetteError::FingerprintCollision("fnv1a64:abc")
-    .to_string()
+  let collision = @core.CassetteError::FingerprintCollision("fnv1a64:abc").to_string()
   assert_true(collision.contains("fnv1a64:abc"))
   assert_true(collision.contains("two different requests"))
 
-  let failure = @core
-    .CassetteError::TransportFailure("connection reset by peer")
-    .to_string()
+  let failure = @core.CassetteError::TransportFailure(
+    "connection reset by peer",
+  ).to_string()
   assert_true(failure.contains("connection reset by peer"))
 }

@@ -29,6 +29,8 @@ pub let default_anthropic_version : String
 
 pub fn frame_payload(@core.StreamFrame) -> Json?
 
+pub let inline_limit_bytes : Int
+
 pub fn int_field(Map[String, Json], String) -> Int?
 
 pub fn int_field_or(Map[String, Json], String, Int) -> Int
@@ -40,6 +42,8 @@ pub let openai_protocol_id : String
 pub fn parse_body_or_raw(String) -> Json
 
 pub fn parse_partial_json(String) -> Json
+
+pub fn parse_response_body(HttpResponse, limit? : Int) -> Json
 
 pub fn string_field(Map[String, Json], String) -> String?
 
@@ -77,7 +81,9 @@ pub fn HttpRequest::to_key(Self) -> String
 pub(all) struct HttpResponse {
   status : Int
   body : String
+  raw : Bytes?
 } derive(Eq)
+pub fn HttpResponse::from_bytes(Int, Bytes) -> Self
 pub fn HttpResponse::new(Int, String) -> Self
 
 pub struct OpenAiChat {

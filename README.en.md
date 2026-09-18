@@ -382,7 +382,7 @@ and can be reviewed as a diff in code review, which is exactly why canonical key
   "format": "mooncassette",
   "version": 2,
   "meta": {
-    "generator": "mooncassette/0.5.0",
+    "generator": "mooncassette/0.6.0",
     "name": "chat-demo",
     "recorded_at": "2026-09-12T08:00:00Z"
   },
@@ -781,6 +781,7 @@ their own IO (the examples and CLI in this repository use `moonbitlang/x`, which
 | `0.3.0` | Provider adapters and miss diagnostics: `providers` (OpenAI / Anthropic), the `Session::record` manual path for async clients, `Session::diagnose` and a readable no-match message; fixes sequential exhaustion being reported as `NoMatch`, and `generator_id` having drifted from the module version |
 | `0.4.0` | Streaming responses: SSE frame parsing, OpenAI / Anthropic delta aggregation, and frame-level replay (`Session::replay_stream`); `cost` accounting; the `cost` and `explain` CLI subcommands. Adds the `stream` and `cost` packages; cassette format version raised to 2, with readers accepting 1–2 |
 | `0.5.0` | "Others can follow it": a CI integration guide (a section in each README plus a copy-ready GitHub Actions workflow), a rate-limit retry example with scripted reply sequences (`ScriptedReplies`), the `examples/benchmarks` suite — which exposed and fixed repeated fingerprint computation during scans (1000-record miss **18.8 ms → 22 µs**, session replay **1.9 ms → 70 µs**) — a visual demo (5 views plus screenshots), an async adapter module, and a new `tokens` CLI subcommand. Also corrects several places where the docs disagreed with the code (calling `FingerprintOnly` a performance escape hatch, the `replay_session` parameter name, the SSE first-line heuristic) |
+| `0.6.0` | Binary and multimodal payloads: `providers` now decides how a response body is carried based on its **content** (JSON / raw text / a payload envelope), so non-text bytes are no longer lossily decoded into replacement characters; base64 is normalized before fingerprinting, so equivalent spellings of the same bytes share one fingerprint; oversized payloads go straight into an envelope; sanitized views gain folding and truncation (`fold` / `fold_json`); adds the `payload` package |
 
 ---
 

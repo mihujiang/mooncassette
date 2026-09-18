@@ -13,8 +13,14 @@ test "replay stays correct while the index grows during recording" {
     transport=mock,
   )
   for i = 1; i <= 3; i = i + 1 {
-    let request = request_of("gpt-4o", @json.parse("{\"n\":" + i.to_string() + "}"))
-    mock.on(request, @core.Response::ok(Json::string("answer-" + i.to_string())))
+    let request = request_of(
+      "gpt-4o",
+      @json.parse("{\"n\":" + i.to_string() + "}"),
+    )
+    mock.on(
+      request,
+      @core.Response::ok(Json::string("answer-" + i.to_string())),
+    )
     let sent = send_result(session, request).unwrap()
     assert_eq(sent.body, Json::string("answer-" + i.to_string()))
   }
@@ -23,7 +29,10 @@ test "replay stays correct while the index grows during recording" {
   // 回放：每条请求都必须取回自己那份响应。
   session.set_mode(@recorder.Mode::Playback)
   for i = 1; i <= 3; i = i + 1 {
-    let request = request_of("gpt-4o", @json.parse("{\"n\":" + i.to_string() + "}"))
+    let request = request_of(
+      "gpt-4o",
+      @json.parse("{\"n\":" + i.to_string() + "}"),
+    )
     let replayed = send_result(session, request).unwrap()
     assert_eq(replayed.body, Json::string("answer-" + i.to_string()))
   }
@@ -64,7 +73,10 @@ test "an indexed session matches the same way on a long cassette" {
     @core.Cassette::new("demo", interactions~),
   )
   for i = 0; i < 50; i = i + 1 {
-    let request = request_of("gpt-4o", @json.parse("{\"n\":" + i.to_string() + "}"))
+    let request = request_of(
+      "gpt-4o",
+      @json.parse("{\"n\":" + i.to_string() + "}"),
+    )
     let replayed = send_result(session, request).unwrap()
     assert_eq(replayed.body, Json::string("answer-" + i.to_string()))
   }

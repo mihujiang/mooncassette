@@ -53,12 +53,31 @@ pub fn HttpRequest::to_key(self : HttpRequest) -> String {
 pub(all) struct HttpResponse {
   status : Int
   body : String
+  /// 响应体的**原始字节**；`None` 表示 `body` 就是权威内容
+  /// （即 `HttpResponse::new` 的既有语义）。
+  ///
+  /// 只有 `HttpResponse::from_bytes` 会填 `Some`：JSON 字符串表示不了任意字节，
+  /// 光留 `body` 的话，非 UTF-8 的响应到解码端只剩一串替换字符，
+  /// 「录下来的响应」与「真发出去的响应」不再逐字节相等 —— 回放随即失去意义。
+  /// `Some` 时一切判别以本字段为准，`body` 只是它的可读视图。
+  raw : Bytes?
 } derive(Eq)
 
 ///|
 /// 构造一个 HTTP 响应。
 pub fn HttpResponse::new(status : Int, body : String) -> HttpResponse {
-  { status, body }
+  { status, body, raw: None }
+}
+
+///|
+/// 用**原始字节**构造响应。
+///
+/// 二进制响应（图片、音频、序列化后的 protobuf……）在 `String` 里放不下：
+/// JSON 载不了任意字节。因此这里把原字节一并保留，由 `parse_response_body`
+/// 按内容决定存成 `{"raw_body": …}` 还是载荷信封；`body` 则给出可读视图
+/// （能无损解码时是原文本，否则是规范 base64）。
+pub fn HttpResponse::from_bytes(status : Int, bytes : Bytes) -> HttpResponse {
+  { status, body: @payload.text_view(bytes), raw: Some(bytes) }
 }
 
 ///|
@@ -127,8 +146,7 @@ fn ScriptedHttpSender::sequence_for(
   match self.scripted.get(key) {
     Some(sequence) => sequence
     None => {
-      let fresh : @core.ScriptedReplies[HttpResponse] = @core.ScriptedReplies::new(
-        [],
+      let fresh : @core.ScriptedReplies[HttpResponse] = @core.ScriptedReplies::new([],
       )
       self.scripted.set(key, fresh)
       fresh

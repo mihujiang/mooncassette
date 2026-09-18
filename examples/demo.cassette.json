@@ -71,7 +71,7 @@
     }
   ],
   "meta": {
-    "generator": "mooncassette/0.5.0",
+    "generator": "mooncassette/0.6.0",
     "name": "offline-demo",
     "recorded_at": "2026-09-12T08:00:00Z"
   },

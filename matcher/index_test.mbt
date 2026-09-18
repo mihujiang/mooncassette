@@ -44,8 +44,7 @@ fn index_of(
 ) -> Int {
   let found = match index {
     Some(built) =>
-      @matcher.find_match(request, interactions[:], policy, cursor, index=built)
-        catch {
+      @matcher.find_match(request, interactions[:], policy, cursor, index=built) catch {
         _ => return -1
       }
     None =>

@@ -13,11 +13,14 @@ import {
   "moonbitlang/core/json",
   "weopqrst/mooncassette/canon",
   "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/payload",
   "weopqrst/mooncassette/recorder",
   "weopqrst/mooncassette/stream",
 }
 
 import {
   "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
   "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/payload",
 } for "test"

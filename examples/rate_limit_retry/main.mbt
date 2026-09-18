@@ -74,14 +74,17 @@ fn describe_error(error : @core.CassetteError) -> String {
   match error {
     @core.CassetteError::Exhausted(_) =>
       "Exhausted —— 录制条数不够，应补录制"
-    @core.CassetteError::NoMatch(_) => "NoMatch —— 请求对不上，应改请求或换匹配策略"
+    @core.CassetteError::NoMatch(_) =>
+      "NoMatch —— 请求对不上，应改请求或换匹配策略"
     _ => "error: " + error.to_string()
   }
 }
 
 ///|
 fn print_statuses(cassette : @core.Cassette) -> Unit {
-  println("  recorded     : " + cassette.length().to_string() + " interaction(s)")
+  println(
+    "  recorded     : " + cassette.length().to_string() + " interaction(s)",
+  )
   for i = 0; i < cassette.length(); i = i + 1 {
     println(
       "    #" +
@@ -95,7 +98,9 @@ fn print_statuses(cassette : @core.Cassette) -> Unit {
 ///|
 fn main {
   // ── 第一步：录制。同一个请求，先 429 再 200 ────────────────────────
-  let protocol : &@providers.Protocol = @providers.OpenAiChat::new("sk-demo-key")
+  let protocol : &@providers.Protocol = @providers.OpenAiChat::new(
+    "sk-demo-key",
+  )
   let sender = @providers.ScriptedHttpSender::new()
   let request = chat_request("你好，请介绍一下自己")
   let outgoing = protocol.encode(request) catch {
@@ -112,10 +117,7 @@ fn main {
 
   let transport = @providers.ProviderTransport::new(protocol, sender)
   let session = @mooncassette.record_session(
-    @core.Cassette::new(
-      "rate-limit-retry",
-      recorded_at="2026-09-13T12:00:00Z",
-    ),
+    @core.Cassette::new("rate-limit-retry", recorded_at="2026-09-13T12:00:00Z"),
     transport,
   )
   println("recording:")

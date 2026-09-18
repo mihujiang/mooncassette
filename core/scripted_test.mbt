@@ -7,9 +7,7 @@
 ///|
 test "replies are handed out in registration order" {
   let replies : @core.ScriptedReplies[String] = @core.ScriptedReplies::new([
-    "first",
-    "second",
-    "third",
+    "first", "second", "third",
   ])
   assert_eq(replies.take(), Some("first"))
   assert_eq(replies.take(), Some("second"))
@@ -37,8 +35,7 @@ test "an empty sequence yields nothing" {
 ///|
 test "consumed and remaining track the cursor" {
   let replies : @core.ScriptedReplies[String] = @core.ScriptedReplies::new([
-    "a",
-    "b",
+    "a", "b",
   ])
   assert_eq(replies.consumed(), 0)
   assert_eq(replies.remaining(), 2)
@@ -68,8 +65,7 @@ test "replies can be appended after construction" {
 test "a two-step sequence models retry-then-succeed" {
   // 这就是速率限制场景的形状：先 429，重试后 200。
   let replies : @core.ScriptedReplies[Int] = @core.ScriptedReplies::new([
-    429,
-    200,
+    429, 200,
   ])
   assert_eq(replies.take(), Some(429))
   assert_eq(replies.take(), Some(200))

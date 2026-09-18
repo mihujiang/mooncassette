@@ -359,11 +359,19 @@ fn run_tokens(cassette_path : String) -> Unit {
   }
   println("")
   println("note: reported_* 是 provider 上报的 usage（精确值）。")
-  println("      heuristic_in 是把请求体的规范文本按「4 字符 1 token」折算的估算 ——")
+  println(
+    "      heuristic_in 是把请求体的规范文本按「4 字符 1 token」折算的估算 ——",
+  )
   println("      mizchi/llm 的 estimate_tokens 用的就是这条规则。")
-  println("      偏差随内容类型变化：中文、代码与 emoji 的偏差远大于英文。")
-  println("      本仓库的示例 cassette 是构造的，因此文档里不给比值；")
-  println("      要数字的话，请在你自己的真实录制上跑这条命令。")
+  println(
+    "      偏差随内容类型变化：中文、代码与 emoji 的偏差远大于英文。",
+  )
+  println(
+    "      本仓库的示例 cassette 是构造的，因此文档里不给比值；",
+  )
+  println(
+    "      要数字的话，请在你自己的真实录制上跑这条命令。",
+  )
 }
 
 ///|

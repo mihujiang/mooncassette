@@ -495,8 +495,7 @@ fn MockTransport::sequence_for(
   match self.scripted.get(key) {
     Some(sequence) => sequence
     None => {
-      let fresh : @core.ScriptedReplies[@core.Response] = @core.ScriptedReplies::new(
-        [],
+      let fresh : @core.ScriptedReplies[@core.Response] = @core.ScriptedReplies::new([],
       )
       self.scripted.set(key, fresh)
       fresh

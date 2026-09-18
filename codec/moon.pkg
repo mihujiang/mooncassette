@@ -7,6 +7,7 @@ import {
   "weopqrst/mooncassette/canon",
   "weopqrst/mooncassette/core",
   "weopqrst/mooncassette/fingerprint",
+  "weopqrst/mooncassette/payload",
 }
 
 import {

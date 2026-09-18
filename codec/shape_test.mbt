@@ -83,8 +83,12 @@ test "non-ascii content round-trips" {
   // 「不转义非 ASCII」与「转义后仍能解析回来」。
   assert_roundtrip_stable(
     one_interaction_cassette(
-      @json.parse("{\"messages\":[{\"role\":\"user\",\"content\":\"你好，世界 🌍\"}]}"),
-      @core.Response::ok(@json.parse("{\"text\":\"¡Hola! Ünïcödé — 日本語\"}")),
+      @json.parse(
+        "{\"messages\":[{\"role\":\"user\",\"content\":\"你好，世界 🌍\"}]}",
+      ),
+      @core.Response::ok(
+        @json.parse("{\"text\":\"¡Hola! Ünïcödé — 日本語\"}"),
+      ),
     ),
   )
 }
@@ -133,14 +137,11 @@ test "a frame sequence with mixed event names round-trips" {
   assert_roundtrip_stable(
     one_interaction_cassette(
       @json.parse("{}"),
-      @core.Response::ok(
-        Json::null(),
-        stream=[
-          @core.StreamFrame::new("a", event="message_start"),
-          @core.StreamFrame::new("", event="ping"),
-          @core.StreamFrame::new("你好"),
-        ],
-      ),
+      @core.Response::ok(Json::null(), stream=[
+        @core.StreamFrame::new("a", event="message_start"),
+        @core.StreamFrame::new("", event="ping"),
+        @core.StreamFrame::new("你好"),
+      ]),
     ),
   )
 }
@@ -164,12 +165,16 @@ test "many interactions keep their order" {
   for i = 0; i < 20; i = i + 1 {
     interactions.push(
       @core.Interaction::new(
-        @core.Request::new("openai", "gpt-4o", @json.parse("{\"i\":" + i.to_string() + "}")),
+        @core.Request::new(
+          "openai",
+          "gpt-4o",
+          @json.parse("{\"i\":" + i.to_string() + "}"),
+        ),
         @core.Response::ok(Json::null()),
       ),
     )
   }
-  let cassette = @core.Cassette::new("many", interactions=interactions)
+  let cassette = @core.Cassette::new("many", interactions~)
   assert_roundtrip_stable(cassette)
   // 顺序就是回放语义，必须原样保留。
   let restored = @codec.decode(@codec.encode(cassette)) catch {

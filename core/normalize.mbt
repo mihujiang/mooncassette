@@ -1,6 +1,10 @@
 // mooncassette/core —— 请求规范化。
 //
-// 规范化只做一件事：**剔除不影响语义、但每次调用都可能变化的字段**。
+// 规范化做两件事：
+// 1. **剔除不影响语义、但每次调用都可能变化的字段**；
+// 2. **把等价的载荷写法收敛到规范形式**（见 `@payload`）——
+//    同一份字节换个库编码（URL-safe、折行、省略填充）就应当命中同一份录制。
+//
 // 刻意的设计取舍：
 // - 不在这里排序对象键。键序归一由 `@canon` 的规范文本负责，
 //   这样规范化是幂等的，且与「如何序列化」解耦。
@@ -45,9 +49,13 @@ pub fn prune_json(value : Json, drop_keys : ArrayView[String]) -> Json {
 }
 
 ///|
-/// 规范化一个请求：剔除易变字段。
+/// 规范化一个请求：剔除易变字段，并把等价的载荷写法收敛到规范形式。
 ///
 /// 未显式传入 `drop_keys` 时使用 `default_drop_keys`。
+///
+/// 第二步（`@payload.normalize_json`）只改写**疑似 base64 载荷**的字符串叶子：
+/// 同一张图片用标准 / URL-safe / 折行三种写法编码，指纹必须只有一个。
+/// 不含这类字符串的请求（即全部历史内容）逐字节不变，指纹也因此不变。
 pub fn Request::normalize(
   self : Request,
   drop_keys? : ArrayView[String],
@@ -59,7 +67,7 @@ pub fn Request::normalize(
   {
     provider: self.provider,
     model: self.model,
-    body: prune_json(self.body, keys),
+    body: @payload.normalize_json(prune_json(self.body, keys)),
   }
 }
 

@@ -117,6 +117,42 @@ pub fn usage_of(
 }
 
 ///|
+/// 「大报文」内联承载的阈值：超过它的原始字节不再按文本存，直接进载荷信封。
+///
+/// 64 KiB 是刻意选的：小到让 JSON 字符串里的转义、折行与页面渲染都还受得住，
+/// 大到不会把常见的文本响应（HTML 错误页、纯文本提示）误伤成 base64。
+/// 需要别的口径时用 `parse_response_body` 的 `limit` 参数覆盖。
+pub let inline_limit_bytes : Int = 65536
+
+///|
+/// 按**内容**决定响应体怎么承载：
+///
+/// - 能解析成 JSON 对象 / 数组 → 原样（`json`，与历史文件同形）；
+/// - 其余文本 → `{"raw_body": …}`（`raw`，与历史文件同形）；
+/// - 无法用文本无损承载、或超过阈值的原始字节 → 载荷信封（`base64`）。
+///
+/// 前两种就是 `HttpResponse::new` 的既有行为，一字未改；只有
+/// `HttpResponse::from_bytes` 带上原始字节时才可能走到第三种 ——
+/// 因此「既有文件的字节不发生变化」。
+pub fn parse_response_body(response : HttpResponse, limit? : Int) -> Json {
+  let bytes = match response.raw {
+    None => return parse_body_or_raw(response.body)
+    Some(bytes) => bytes
+  }
+  let cap = match limit {
+    Some(value) => value
+    None => inline_limit_bytes
+  }
+  // 阈值以内、且确实能用文本无损承载，才值得按文本存；
+  // 否则一律进信封 —— 宁可多占 33%，也不让字节在转义与解析里被改掉。
+  if @payload.is_text(bytes) && bytes.length() <= cap {
+    parse_body_or_raw(response.body)
+  } else {
+    @payload.pack_bytes(bytes)
+  }
+}
+
+///|
 /// 把响应体文本解析为 JSON。
 ///
 /// 解析失败时**不报错**，而是包装成 `{"raw_body": "..."}`。

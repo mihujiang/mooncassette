@@ -85,6 +85,39 @@ test "Request::normalize is idempotent" {
 }
 
 ///|
+test "Request::normalize collapses equivalent payload spellings" {
+  // 40 个字符的规范 base64 片段，两段拼起来是 80 字符 ——
+  // 刚好越过「疑似载荷」的门槛（≥64 字符、解码后 ≥48 字节）。
+  let half = "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB"
+  let canonical = half + half
+  assert_eq(canonical.length(), 80)
+  // 同一份字节的折行写法：换的是书写，不是内容。
+  let folded = half + "\\n" + half
+  let plain = @core.Request::new(
+    "openai",
+    "gpt-4o",
+    @json.parse("{\"image\":\"" + canonical + "\"}"),
+  )
+  let wrapped = @core.Request::new(
+    "openai",
+    "gpt-4o",
+    @json.parse("{\"image\":\"" + folded + "\"}"),
+  )
+  assert_eq(wrapped.normalize().body, plain.normalize().body)
+  // 判据刻意保守：不属于载荷的字符串一个字节都不动，
+  // 因此把正常内容放进同一个请求里也不会被误改。
+  let mixed = @core.Request::new(
+    "openai",
+    "gpt-4o",
+    @json.parse("{\"label\":\"short\",\"image\":\"" + folded + "\"}"),
+  )
+  assert_eq(
+    mixed.normalize().body,
+    @json.parse("{\"label\":\"short\",\"image\":\"" + canonical + "\"}"),
+  )
+}
+
+///|
 test "Request::normalize does not mutate the original request" {
   let body = @json.parse("{\"request_id\":\"xyz\"}")
   let request = @core.Request::new("openai", "gpt-4o", body)

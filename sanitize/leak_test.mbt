@@ -18,7 +18,7 @@ struct Rng {
 
 ///|
 fn Rng::new(seed : UInt64) -> Rng {
-  { state: seed, }
+  { state: seed }
 }
 
 ///|
@@ -50,18 +50,8 @@ fn wrap_secret(rng : Rng) -> String {
 /// 键名池：既有必然命中的敏感键，也有**不该**被误伤的计数字段与普通键。
 fn key_at(rng : Rng) -> String {
   let pool : Array[String] = [
-    "authorization",
-    "x-api-key",
-    "api_key",
-    "secret_key",
-    "access_token",
-    "password",
-    "max_tokens",
-    "total_tokens",
-    "content",
-    "messages",
-    "note",
-    "data",
+    "authorization", "x-api-key", "api_key", "secret_key", "access_token", "password",
+    "max_tokens", "total_tokens", "content", "messages", "note", "data",
   ]
   pool[rng.next(pool.length())]
 }
@@ -101,7 +91,7 @@ fn random_leaf(rng : Rng) -> Json {
   match rng.next(6) {
     0 =>
       // 数字型叶子：用来检查计数字段是否被误伤。
-      Json::number((rng.next(100000)).to_double())
+      Json::number(rng.next(100000).to_double())
     1 => Json::boolean(rng.next(2) == 0)
     2 => Json::null()
     3 => Json::string("ordinary text")
@@ -176,10 +166,7 @@ test "token counting fields are not damaged by the shape scan" {
     "{\"max_tokens\":1024,\"total_tokens\":9999,\"access_token\":\"s\",\"note\":\"keep me\"}",
   )
   let out = @canon.to_canonical_string(
-    @sanitize.sanitize_json(
-      structure,
-      @sanitize.SanitizePolicy::default(),
-    ),
+    @sanitize.sanitize_json(structure, @sanitize.SanitizePolicy::default()),
   )
   assert_true(out.contains("1024"))
   assert_true(out.contains("9999"))
@@ -192,10 +179,7 @@ test "numbers and booleans are never rewritten" {
   // 形状扫描只应作用于字符串；把 `123` 或 `true` 改掉是明显的错。
   let structure = @json.parse("{\"a\":123,\"b\":true,\"c\":null}")
   let out = @canon.to_canonical_string(
-    @sanitize.sanitize_json(
-      structure,
-      @sanitize.SanitizePolicy::default(),
-    ),
+    @sanitize.sanitize_json(structure, @sanitize.SanitizePolicy::default()),
   )
   assert_eq(out, "{\"a\":123,\"b\":true,\"c\":null}")
 }

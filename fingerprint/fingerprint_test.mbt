@@ -84,3 +84,26 @@ test "canonical_request sorts keys so it can be diffed" {
     "{\"body\":{\"a\":1,\"b\":2},\"model\":\"gpt-4o\",\"provider\":\"openai\"}",
   )
 }
+
+///|
+test "equivalent payload spellings share one fingerprint" {
+  let half = "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFB"
+  let canonical = half + half
+  // 同一份字节的折行写法：换了书写方式，字节一个没变。
+  let folded = half + "\\n" + half
+  let plain = build_request(
+    "gpt-4o",
+    @json.parse("{\"image\":\"" + canonical + "\"}"),
+  )
+  let wrapped = build_request(
+    "gpt-4o",
+    @json.parse("{\"image\":\"" + folded + "\"}"),
+  )
+  // 指纹只对**规范化后**的请求计算，因此两种写法必须落到同一个指纹 ——
+  // 否则「同一张图片换个库编码」就会漏掉已经录好的那一份。
+  assert_eq(
+    @fingerprint.fingerprint(plain.normalize()),
+    @fingerprint.fingerprint(wrapped.normalize()),
+  )
+  assert_true(@fingerprint.same_request(plain.normalize(), wrapped.normalize()))
+}

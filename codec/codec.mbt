@@ -7,7 +7,7 @@
 // {
 //   "format": "mooncassette",
 //   "version": 2,
-//   "meta": { "name": "…", "generator": "mooncassette/0.5.0", "recorded_at": "…"? },
+//   "meta": { "name": "…", "generator": "mooncassette/0.6.0", "recorded_at": "…"? },
 //   "interactions": [
 //     {
 //       "fingerprint": "fnv1a64:…",
@@ -213,6 +213,40 @@ fn interaction_to_json(item : @core.Interaction) -> Json {
 // ---------------------------------------------------------------------------
 
 ///|
+/// 深度校验正文里出现的**每一处载荷信封**，并把出错位置落到具体字段路径。
+///
+/// `@payload.validate_envelope` 只能看一个对象；信封却可以嵌在正文的任意深度。
+/// 少了这一步，改坏内层 `payload` 只会得到「完整性摘要不符」——
+/// 那句话说不到现场。篡改检测的价值，取决于报错能不能直接指向现场。
+fn check_envelopes(
+  value : Json,
+  path : String,
+) -> Unit raise @core.CassetteError {
+  match @payload.validate_envelope(value) {
+    Some(reason) =>
+      raise @core.CassetteError::SchemaViolation(path + ": " + reason)
+    None => ()
+  }
+  match value {
+    Object(fields) =>
+      for key in fields.keys() {
+        match fields.get(key) {
+          Some(child) => check_envelopes(child, path + "." + key)
+          None => ()
+        }
+      }
+    Array(items) => {
+      let mut index = 0
+      for item in items {
+        check_envelopes(item, path + "[" + index.to_string() + "]")
+        index = index + 1
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
 fn meta_of_json(value : Json) -> @core.CassetteMeta raise @core.CassetteError {
   let fields = expect_object(value, "$.meta")
   let name = expect_string(
@@ -247,6 +281,10 @@ fn interaction_of_json(
   )
   let interaction : @core.Interaction = { request, response }
   if verify {
+    // 先于摘要校验：信封坏掉时能直接指到字段，
+    // 而摘要不符只能说明「这条记录被动过」，说不到现场。
+    check_envelopes(request.body, path + ".request.body")
+    check_envelopes(response.body, path + ".response.body")
     // 两个摘要都要校验：前者覆盖请求，后者覆盖整条记录（含响应）。
     check_digest(fields, path, "fingerprint", @fingerprint.fingerprint(request))
     check_digest(

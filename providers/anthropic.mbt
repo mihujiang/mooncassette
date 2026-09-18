@@ -72,7 +72,7 @@ pub fn decode_anthropic_response(response : HttpResponse) -> @core.Response {
   if @stream.looks_like_event_stream(response.body) {
     return decode_anthropic_stream_response(response)
   }
-  let body = parse_body_or_raw(response.body)
+  let body = parse_response_body(response)
   let usage = match as_object(body) {
     Some(fields) => usage_of(fields, "usage", "input_tokens", "output_tokens")
     None => None

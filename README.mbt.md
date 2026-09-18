@@ -342,7 +342,9 @@ test "chat completes without a network" {
 ///|
 test "no behavioural drift since the recording was accepted" {
   let old = @codec.decode(@fs.read_file_to_string("tests/cassettes/chat.json"))
-  let fresh = @codec.decode(@fs.read_file_to_string("tests/cassettes/chat.new.json"))
+  let fresh = @codec.decode(
+    @fs.read_file_to_string("tests/cassettes/chat.new.json"),
+  )
   let report = @mooncassette.compare_recordings(old, fresh)
   if !report.is_clean() {
     fail("drift detected: " + report.summary())
@@ -368,7 +370,7 @@ test "no behavioural drift since the recording was accepted" {
   "format": "mooncassette",
   "version": 2,
   "meta": {
-    "generator": "mooncassette/0.5.0",
+    "generator": "mooncassette/0.6.0",
     "name": "chat-demo",
     "recorded_at": "2026-09-12T08:00:00Z"
   },
@@ -719,6 +721,7 @@ moon fmt && moon info
 | `0.3.0` | 协议适配与未命中诊断：`providers`（OpenAI / Anthropic）、`Session::record` 手动录入路径（异步客户端的接入方式）、`Session::diagnose` 与可读的未命中消息；修复顺序模式耗尽被误报为 `NoMatch`、`generator_id` 与模块版本脱钩 |
 | `0.4.0` | 流式响应：SSE 帧解析、OpenAI / Anthropic 增量聚合、以及回放侧的逐帧重放（`Session::replay_stream`）；`cost` 成本核算；CLI 新增 `cost` 与 `explain`。新增 `stream` 与 `cost` 两个包；cassette 格式版本升到 2，读取端兼容 1–2 |
 | `0.5.0` | 「别人能照着用」：CI 接入指南（中英 README 各一节 + 可直接复制的 GitHub Actions 示例）、限流重试示例与脚本化应答序列（`ScriptedReplies`）、基准套件 `examples/benchmarks`（并据此修掉扫描中重复计算指纹的问题：1000 条记录未命中 **18.8 ms → 22 µs**，会话回放 **1.9 ms → 70 µs**）、可视化 Demo（5 个视图 + 截图）、异步适配层（独立模块）、CLI 新增 `tokens`；另修正若干「文档与实现不符」之处（`FingerprintOnly` 被误称为性能逃生通道、`replay_session` 的参数名、SSE 起始行判据） |
+| `0.6.0` | 二进制与多模态载荷：`providers` 按响应体**内容**决定承载方式（JSON / 原文 / 载荷信封），非文本字节不再被有损解码成替换字符；base64 归一化后进指纹，同一份字节的等价写法共用一个指纹；超过阈值的大载荷直接进信封；脱敏视图新增折叠与截断（`fold` / `fold_json`）；新增 `payload` 包 |
 
 ---
 

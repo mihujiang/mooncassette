@@ -10,9 +10,7 @@ fn scripted_request() -> HttpRequest {
 
 ///|
 fn status_of(sender : ScriptedHttpSender, request : HttpRequest) -> Int {
-  let response = sender.send(request) catch {
-    _ => return -1
-  }
+  let response = sender.send(request) catch { _ => return -1 }
   response.status
 }
 

@@ -17,7 +17,7 @@ struct FuzzRng {
 
 ///|
 fn FuzzRng::new(seed : UInt64) -> FuzzRng {
-  { state: seed, }
+  { state: seed }
 }
 
 ///|
@@ -32,22 +32,8 @@ fn FuzzRng::next(self : FuzzRng, bound : Int) -> Int {
 /// 随机字符串的字母表：全是 SSE 里有语法含义或边界意义的字符。
 fn fuzz_alphabet() -> Array[String] {
   [
-    "data",
-    "event",
-    "id",
-    "retry",
-    ":",
-    " ",
-    "\n",
-    "\r",
-    "\r\n",
-    "[DONE]",
-    "{",
-    "}",
-    "\"",
-    "你",
-    "\u{FEFF}",
-    "x",
+    "data", "event", "id", "retry", ":", " ", "\n", "\r", "\r\n", "[DONE]", "{",
+    "}", "\"", "你", "\u{FEFF}", "x",
   ]
 }
 
@@ -78,32 +64,11 @@ fn assert_parses_cleanly(input : String) -> Unit raise {
 ///|
 test "adversarial corpus parses without crashing" {
   let corpus : Array[String] = [
-    "",
-    "\n",
-    "\n\n\n",
-    "\r",
-    "\r\r\r\r",
-    "\r\n\r\n\r\n",
-    "::::",
-    ":\n:\r\n:\r",
-    "data",
-    "data\n\n",
-    "data:\n\n",
-    "data: \n\n",
-    "data:\r\n\r\n",
-    "data: x",
-    "data: x\n",
-    "event:\ndata:\n\n",
-    "data\r\n",
-    "data\n",
-    "\u{FEFF}data: x\n\n",
-    "\u{FEFF}\u{FEFF}data: x\n\n",
-    "data: 你好，世界 🌍\n\n",
-    "event: 中文事件\ndata: {}\n\n",
-    "data: [DONE]\n\n",
-    "a\nb\nc\n\n",
-    "data: {\"a\":1}\r\ndata: {\"b\":2}\r\n\r\n",
-    "data: one\n\n\ndata: two\n\n",
+    "", "\n", "\n\n\n", "\r", "\r\r\r\r", "\r\n\r\n\r\n", "::::", ":\n:\r\n:\r",
+    "data", "data\n\n", "data:\n\n", "data: \n\n", "data:\r\n\r\n", "data: x", "data: x\n",
+    "event:\ndata:\n\n", "data\r\n", "data\n", "\u{FEFF}data: x\n\n", "\u{FEFF}\u{FEFF}data: x\n\n",
+    "data: 你好，世界 🌍\n\n", "event: 中文事件\ndata: {}\n\n", "data: [DONE]\n\n",
+    "a\nb\nc\n\n", "data: {\"a\":1}\r\ndata: {\"b\":2}\r\n\r\n", "data: one\n\n\ndata: two\n\n",
   ]
   for input in corpus {
     assert_parses_cleanly(input)

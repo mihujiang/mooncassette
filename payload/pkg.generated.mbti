@@ -1,0 +1,48 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "weopqrst/mooncassette/payload"
+
+// Values
+pub let content_encoding_key : String
+
+pub fn decode(String) -> Bytes?
+
+pub fn encode(Bytes) -> String
+
+pub let encoding_base64 : String
+
+pub fn fold(String, limit? : Int) -> String
+
+pub fn fold_json(Json, limit? : Int) -> Json
+
+pub fn is_canonical(String) -> Bool
+
+pub fn is_text(Bytes) -> Bool
+
+pub fn looks_like_base64(String, min_chars? : Int, min_bytes? : Int) -> Bool
+
+pub let min_payload_bytes : Int
+
+pub let min_payload_chars : Int
+
+pub fn normalize(String, min_chars? : Int, min_bytes? : Int) -> String
+
+pub fn normalize_json(Json, min_chars? : Int, min_bytes? : Int) -> Json
+
+pub fn pack_bytes(Bytes) -> Json
+
+pub let payload_key : String
+
+pub fn text_view(Bytes) -> String
+
+pub fn unpack_bytes(Json) -> Bytes?
+
+pub fn validate_envelope(Json) -> String?
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

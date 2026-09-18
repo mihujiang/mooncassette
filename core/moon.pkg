@@ -3,5 +3,9 @@
 // 本包为纯计算包：不依赖任何 IO、网络或平台能力，
 // 可在 wasm / wasm-gc / js / native 全部后端编译与测试。
 import {
+  "weopqrst/mooncassette/payload",
+}
+
+import {
   "moonbitlang/core/json",
 } for "test"

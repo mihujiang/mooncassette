@@ -131,11 +131,7 @@ fn frames_of(json : Json, index : Int) -> Array[Json] raise {
 }
 
 ///|
-fn frame_of(
-  json : Json,
-  index : Int,
-  frame : Int,
-) -> Map[String, Json] raise {
+fn frame_of(json : Json, index : Int, frame : Int) -> Map[String, Json] raise {
   match frames_of(json, index)[frame] {
     Object(fields) => fields
     _ => fail("expected a frame object")
@@ -170,23 +166,19 @@ fn set_meta_field(json : Json, key : String, value : Json) -> Unit raise {
 
 ///|
 fn stream_cassette() -> @core.Cassette raise {
-  @core.Cassette::new(
-    "stream",
-    recorded_at="2026-09-13T00:00:00Z",
-    interactions=[
-      @core.Interaction::new(
-        @core.Request::new("openai", "gpt-4o", @json.parse("{\"stream\":true}")),
-        @core.Response::ok(
-          @json.parse("{\"choices\":[]}"),
-          usage=@core.Usage::new(3, 1),
-          stream=[
-            @core.StreamFrame::new("{\"i\":1}", event="chunk"),
-            @core.StreamFrame::new("[DONE]"),
-          ],
-        ),
+  @core.Cassette::new("stream", recorded_at="2026-09-13T00:00:00Z", interactions=[
+    @core.Interaction::new(
+      @core.Request::new("openai", "gpt-4o", @json.parse("{\"stream\":true}")),
+      @core.Response::ok(
+        @json.parse("{\"choices\":[]}"),
+        usage=@core.Usage::new(3, 1),
+        stream=[
+          @core.StreamFrame::new("{\"i\":1}", event="chunk"),
+          @core.StreamFrame::new("[DONE]"),
+        ],
       ),
-    ],
-  )
+    ),
+  ])
 }
 
 // ---------------------------------------------------------------------------

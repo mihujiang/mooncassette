@@ -66,7 +66,7 @@ pub fn decode_openai_response(response : HttpResponse) -> @core.Response {
   if @stream.looks_like_event_stream(response.body) {
     return decode_openai_stream_response(response)
   }
-  let body = parse_body_or_raw(response.body)
+  let body = parse_response_body(response)
   let usage = match as_object(body) {
     // 注意字段名差异：OpenAI 叫 prompt_tokens / completion_tokens，
     // 而统一模型采用 input / output。

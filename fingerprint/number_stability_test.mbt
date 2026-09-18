@@ -22,17 +22,11 @@ test "number spelling is identical on every backend" {
     ("{\"n\":1e-7}", 1.0e-7, "fnv1a64:1a4a8b2eb2aac0e6"),
     // 该 Double 无法精确表示给定字面量，两个后端都收敛到同一个 17 位结果。
     (
-      "{\"n\":123456789012345680}",
-      123456789012345678.0,
-      "fnv1a64:dc253ed1b2618b9a",
+      "{\"n\":123456789012345680}", 123456789012345678.0, "fnv1a64:dc253ed1b2618b9a",
     ),
     // 最小次正规数：格式化器的极端情况。
     ("{\"n\":5e-324}", 5.0e-324, "fnv1a64:9c5ee9b115879048"),
-    (
-      "{\"n\":0.3333333333333333}",
-      1.0 / 3.0,
-      "fnv1a64:0df1e7bb21bde1ca",
-    ),
+    ("{\"n\":0.3333333333333333}", 1.0 / 3.0, "fnv1a64:0df1e7bb21bde1ca"),
   ]
   for case in cases {
     let (expected_text, value, expected_fingerprint) = case

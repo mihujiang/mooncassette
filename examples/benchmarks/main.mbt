@@ -96,7 +96,11 @@ fn pad_right(text : String, width : Int) -> String {
 fn print_timings(rows : Array[Row]) -> Unit {
   for row in rows {
     let per_op = row.us_per_op
-    let ops_per_sec = if per_op > 0.0 { (1000000.0 / per_op).to_int() } else { 0 }
+    let ops_per_sec = if per_op > 0.0 {
+      (1000000.0 / per_op).to_int()
+    } else {
+      0
+    }
     println(
       "  " +
       pad_right(row.name, 32) +
@@ -152,7 +156,11 @@ fn synth_cassette(n : Int) -> @core.Cassette {
     message.set("role", Json::string("assistant"))
     message.set(
       "content",
-      Json::string("这是第 " + i.to_string() + " 条回答，长度也接近真实情况。"),
+      Json::string(
+        "这是第 " +
+        i.to_string() +
+        " 条回答，长度也接近真实情况。",
+      ),
     )
     choice.set("message", Json::object(message))
     choice.set("finish_reason", Json::string("stop"))
@@ -163,7 +171,11 @@ fn synth_cassette(n : Int) -> @core.Cassette {
     )
     interactions.push(@core.Interaction::new(request, response))
   }
-  @core.Cassette::new("bench", recorded_at="2026-09-13T00:00:00Z", interactions~)
+  @core.Cassette::new(
+    "bench",
+    recorded_at="2026-09-13T00:00:00Z",
+    interactions~,
+  )
 }
 
 ///|
@@ -192,7 +204,10 @@ fn synth_secrets() -> Json {
   nested.set("password", Json::string("hunter2"))
   let root : Map[String, Json] = Map([])
   root.set("api_key", Json::string("sk-abcdefgh12345678"))
-  root.set("authorization", Json::string("Bearer eyJhbGciOiJIUzI1NiJ9.payload.sig"))
+  root.set(
+    "authorization",
+    Json::string("Bearer eyJhbGciOiJIUzI1NiJ9.payload.sig"),
+  )
   root.set("nested", Json::object(nested))
   root.set("safe", Json::string("keep me"))
   Json::object(root)
@@ -245,7 +260,9 @@ fn print_sizes(records : Array[Int]) -> Unit {
 ///|
 fn main {
   println("mooncassette 基准")
-  println("  规模指标是确定性的；时间指标取决于机器与后端，跨机器比较没有意义。")
+  println(
+    "  规模指标是确定性的；时间指标取决于机器与后端，跨机器比较没有意义。",
+  )
   print_sizes([10, 100, 1000])
 
   println("")
@@ -301,15 +318,15 @@ fn main {
     let (policy, name, request) = entry
     rows.push(
       measure(name, 20, fn() {
-        let found = @matcher.find_match(request, big.interactions[:], policy, 0)
-          catch {
+        let found = @matcher.find_match(request, big.interactions[:], policy, 0) catch {
           _ => {
             accumulator.failures = accumulator.failures + 1
             return
           }
         }
         match found {
-          Some(result) => accumulator.checksum = accumulator.checksum + result.index
+          Some(result) =>
+            accumulator.checksum = accumulator.checksum + result.index
           None => accumulator.checksum = accumulator.checksum + 1
         }
       }),
@@ -328,10 +345,7 @@ fn main {
   )
   let indexed_cases : Array[(@matcher.MatchPolicy, String)] = [
     (@matcher.MatchPolicy::Exact, "match exact miss indexed (1000)"),
-    (
-      @matcher.MatchPolicy::FingerprintOnly,
-      "match fp miss indexed (1000)",
-    ),
+    (@matcher.MatchPolicy::FingerprintOnly, "match fp miss indexed (1000)"),
   ]
   for entry in indexed_cases {
     let (policy, name) = entry
@@ -350,7 +364,8 @@ fn main {
           }
         }
         match found {
-          Some(result) => accumulator.checksum = accumulator.checksum + result.index
+          Some(result) =>
+            accumulator.checksum = accumulator.checksum + result.index
           None => accumulator.checksum = accumulator.checksum + 1
         }
       }),
@@ -396,6 +411,10 @@ fn main {
     accumulator.failures.to_string() +
     "（必须为 0，否则时间测的是空路径）",
   )
-  println("  结果校验值：" + accumulator.checksum.to_string() + "（防止计算被优化掉）")
+  println(
+    "  结果校验值：" +
+    accumulator.checksum.to_string() +
+    "（防止计算被优化掉）",
+  )
   println("ok")
 }

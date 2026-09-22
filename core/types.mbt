@@ -38,7 +38,7 @@ pub fn is_supported_version(version : Int) -> Bool {
 /// 必须与 `moon.mod` 里的 `version` 保持一致：CI 会比对这两处，不一致
 /// 直接失败。之所以要靠校验而不是共享常量，是因为 MoonBit 无法在编译期
 /// 读取模块元信息，而这个标识一旦漂移，cassette 就会谎报产出版本。
-pub let generator_id : String = "mooncassette/0.6.0"
+pub let generator_id : String = "mooncassette/0.7.0"
 
 ///|
 /// 一次 LLM 请求。

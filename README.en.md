@@ -232,16 +232,106 @@ from any context. If your client is synchronous, `FunctionSender` above is less 
 
 ---
 
+## Plugging in your own HTTP client
+
+The previous section used the protocols that ship with `providers`. If your client is your own,
+pick a lane by its shape:
+
+| Your client | What to implement | Cost |
+|---|---|---|
+| Sync, wire format compatible with OpenAI / Anthropic | `providers.HttpSender` | Least: just "send it" |
+| Sync, wire format of your own | Add a `providers.Protocol` | Plus `encode` / `decode` |
+| Async (`async fn`, e.g. `mizchi/x/http`) | No trait — see "A note on async HTTP clients" above | You write the record branch |
+| You already have the traffic and just want a cassette | A minimal `recorder.Transport` | You must honour the normalize / sanitize boundary |
+
+### A protocol of your own: implement `Protocol`
+
+The protocol layer has nothing to do with the network, so it is fully offline-testable.
+Of the three methods, `encode` and `decode` are pure conversions:
+
+```moonbit nocheck
+///|
+pub impl @providers.Protocol for MyProtocol with fn name(_self) {
+  "my-vendor"
+}
+
+///|
+pub impl @providers.Protocol for MyProtocol with fn encode(self, request) {
+  @providers.HttpRequest::new(
+    "POST",
+    self.base_url + "/v1/complete",
+    [("content-type", "application/json")],
+    @canon.to_canonical_string(request.body),
+  )
+}
+
+///|
+pub impl @providers.Protocol for MyProtocol with fn decode(_self, response) {
+  // Parse the payload yourself. Fill `usage` with what the provider actually
+  // reported: replay, cost and drift detection all read it. Leaving it out
+  // still replays, but you lose the "exact" half of the promise.
+  @core.Response::new(response.status, @json.parse(response.body))
+}
+```
+
+Wiring it up is identical to the built-in protocols:
+
+```moonbit nocheck
+///|
+let transport = @providers.ProviderTransport::new(
+  MyProtocol::new("https://api.my-vendor.com"),
+  @providers.FunctionSender::new(fn(request) { MyClient::call(request) }),
+)
+```
+
+### Prove the wiring first: `ScriptedHttpSender`
+
+Get one field wrong and the recorded cassette will never match again — and that failure is
+**silent** at recording time. `ScriptedHttpSender` runs the whole chain **offline** and lets you
+assert on what was actually sent:
+
+```moonbit nocheck
+///|
+test "my protocol sends what I think it sends" {
+  let sender = @providers.ScriptedHttpSender::new()
+  sender.on(
+    @providers.HttpRequest::new(
+      "POST",
+      "https://api.my-vendor.com/v1/complete",
+      [("content-type", "application/json")],
+      expected_body,
+    ),
+    @providers.HttpResponse::new(200, "{\"text\":\"hi\"}"),
+  )
+  let transport = @providers.ProviderTransport::new(
+    MyProtocol::new("https://api.my-vendor.com"),
+    sender,
+  )
+  let response = transport.send(request)
+  assert_eq(response.status, 200)
+  assert_eq(sender.call_count(), 1)
+}
+```
+
+An unmatched request does not silently take another route: it comes back as a 500 with an error
+body naming the key it expected, so the assertion fails immediately instead of surfacing months
+later as a replay miss.
+
+When a replay fails in CI, the `explain` subcommand shows which field differs — no need to
+change code and rerun.
+
+---
+
 ## Quantitative indicators
 
 Only numbers that **can be reproduced inside this repository**, each with the way to reproduce it.
 
 | Indicator | Value | How to reproduce |
 |---|---|---|
-| Library packages | 12 (including the facade) | `moon info`, or `pkg.generated.mbti` in each directory |
-| Production code | 6,214 lines | excluding `*_test.mbt` / `*_wbtest.mbt` (includes examples and the CLI) |
-| Test code | 4,781 lines | the sum of the two test-file groups |
-| Tests | 296, each run on both `wasm-gc` and `js` | `moon test --target wasm-gc` / `--target js` |
+| Library packages | 14 (including the facade) | `moon info`, or `pkg.generated.mbti` in each directory |
+| Production code | 6,506 lines | excluding `*_test.mbt` / `*_wbtest.mbt` (includes examples and the CLI; excludes the `demo/`, `llm/`, `async/` modules) |
+| Test code | 5,658 lines | the sum of the two test-file groups (same scope) |
+| Tests | 352, each run on both `wasm-gc` and `js` | `moon test --target wasm-gc` / `--target js` |
 | Adversarial cases | 20 tampering + 300 random sanitizer structures + 600 random parser inputs + 12 shapes | `codec/tamper_test.mbt`, `sanitize/leak_test.mbt`, `stream/fuzz_test.mbt`, `codec/shape_test.mbt` |
 | Demo module | 5 views; 12 white-box tests + an end-to-end smoke test | `demo/` |
 
@@ -382,7 +472,7 @@ and can be reviewed as a diff in code review, which is exactly why canonical key
   "format": "mooncassette",
   "version": 2,
   "meta": {
-    "generator": "mooncassette/0.6.0",
+    "generator": "mooncassette/0.7.0",
     "name": "chat-demo",
     "recorded_at": "2026-09-12T08:00:00Z"
   },
@@ -595,6 +685,10 @@ mooncassette diff    <old.json> <new.json>           # report drift between two 
 mooncassette cost    <cassette.json> <prices.json>   # total token cost against a price table
 mooncassette tokens  <cassette.json>                 # reported usage vs a chars/4 heuristic
 mooncassette explain <cassette.json> <request.json>  # say whether a request replays, and if not, why (exit 1)
+mooncassette migrate <old.json> <new.json>           # upgrade to the current format, print a change summary
+mooncassette trim    <in.json> <out.json> --keep <spec>            # keep a subset of the records
+mooncassette merge   <out.json> <in.json> [<in.json> ...] [--policy <p>]  # merge recordings, drop exact duplicates
+mooncassette stats   <in.json> [<in.json> ...]       # roll up versions / providers / statuses / models
 mooncassette help
 ```
 
@@ -628,8 +722,34 @@ policy=Exact  cursor=0  interactions=1
 rejected there, pinpointed to `$.interactions[i].integrity`.
 
 Argument parsing deliberately **does not rely on position** (different backends give different
-semantics to `@env.args()`); it scans for known subcommand keywords instead, so native and js
-behave identically.
+semantics to `@env.args()`); it scans for known subcommand keywords instead, and the same holds for
+value-taking flags (`--keep` / `--policy`) — so native and js behave identically.
+
+`migrate` / `trim` / `merge` / `stats` exist to **maintain** a corpus of recordings, under three
+shared rules:
+
+- **New files only, never in place**: `migrate` errors out when the source and the target are the
+  same. Migration is meant to leave a trace — the old file stays, the two versions can be compared,
+  and there is a way back if something went wrong.
+- **Output is stable and reproducible**: every grouping is explicitly sorted (count descending,
+  ties by code-point order), so the same input prints the same bytes on any backend, in any process.
+- **Information is made visible, never guessed**: `stats` keeps `unreported` as its own column
+  instead of folding it into the token total ("unknown" is not "zero"); `trim` prints both the
+  original and the kept record counts, so records dropped by an out-of-range `index` or a
+  non-existent `model` are **visible** rather than silently swallowed.
+
+`--keep` accepts `all` / `first:<n>` / `last:<n>` / `index:<i,j,…>` / `model:<name>` /
+`provider:<name>` / `status:<code>` / `stream` / `non-stream`; `--policy` accepts
+`keep-first` / `keep-last` / `keep-both` (default `keep-both`, i.e. keep both sides of a conflict).
+
+A reproducible example:
+
+```bash
+moon run cmd/main --target js -- trim examples/demo.cassette.json /tmp/one.json --keep first:1
+# trimmed  : examples/demo.cassette.json -> /tmp/one.json
+# keep     : first:1
+# records  : 2 -> 1
+```
 
 **These commands are not published as an installable binary**; inside this repository they are run
 as `moon run cmd/main --target js -- <subcommand>`. If you use the library in your own project, the
@@ -664,7 +784,7 @@ moon check --target js
 moon fmt && moon info
 ```
 
-**All 296 tests pass**, covering twelve packages, each run on both `wasm-gc` and `js`.
+**All 352 tests pass**, covering fourteen packages, each run on both `wasm-gc` and `js`.
 `examples/benchmarks` additionally prints a set of **size metrics** (deterministic, dependent only on
 the data) and a set of **timing metrics** (dependent on the machine and backend): kept apart so that
 "how busy the CI machine was today" never becomes an assertion that drifts. The point is not
@@ -759,11 +879,13 @@ the line count but that **every invariant above has a matching assertion**:
 | `matcher` | Four matching strategies and ring lookup | No |
 | `sanitize` | Sanitizing policy and recursive sanitizing | No |
 | `codec` | Cassette encoding/decoding and integrity verification | No |
+| `payload` | Large-payload envelope: encoding, base64 normalization, threshold decisions | No |
 | `drift` | Drift detection between two recordings | No |
 | `providers` | OpenAI / Anthropic protocol codecs (including stream aggregation), HTTP executor abstraction | No |
 | `stream` | SSE frame parsing and rendering | No |
 | `cost` | Cost accounting against a caller-supplied price table | No |
 | `recorder` | `Transport` abstraction, session engine, `MockTransport` | No |
+| `maintain` | Recording maintenance: format migration, trimming, merging, statistics | No |
 | `mooncassette` | Facade: the shortest path to getting started | No |
 
 **Every package is pure computation** and compiles on the `wasm` / `wasm-gc` / `js` / `native`
@@ -782,6 +904,7 @@ their own IO (the examples and CLI in this repository use `moonbitlang/x`, which
 | `0.4.0` | Streaming responses: SSE frame parsing, OpenAI / Anthropic delta aggregation, and frame-level replay (`Session::replay_stream`); `cost` accounting; the `cost` and `explain` CLI subcommands. Adds the `stream` and `cost` packages; cassette format version raised to 2, with readers accepting 1–2 |
 | `0.5.0` | "Others can follow it": a CI integration guide (a section in each README plus a copy-ready GitHub Actions workflow), a rate-limit retry example with scripted reply sequences (`ScriptedReplies`), the `examples/benchmarks` suite — which exposed and fixed repeated fingerprint computation during scans (1000-record miss **18.8 ms → 22 µs**, session replay **1.9 ms → 70 µs**) — a visual demo (5 views plus screenshots), an async adapter module, and a new `tokens` CLI subcommand. Also corrects several places where the docs disagreed with the code (calling `FingerprintOnly` a performance escape hatch, the `replay_session` parameter name, the SSE first-line heuristic) |
 | `0.6.0` | Binary and multimodal payloads: `providers` now decides how a response body is carried based on its **content** (JSON / raw text / a payload envelope), so non-text bytes are no longer lossily decoded into replacement characters; base64 is normalized before fingerprinting, so equivalent spellings of the same bytes share one fingerprint; oversized payloads go straight into an envelope; sanitized views gain folding and truncation (`fold` / `fold_json`); adds the `payload` package |
+| `0.7.0` | Ecosystem integration and cassette upkeep: a `mizchi/llm` adapter (a separate `mooncassette-llm` module that replaces llm's estimated token counts with the exact usage the provider reported); a `maintain` package plus four CLI subcommands (`migrate` / `trim` / `merge` / `stats`); a new README section on plugging in your own HTTP client. The async adapter still waits on a toolchain upgrade |
 
 ---
 

@@ -1,0 +1,14 @@
+// mooncassette/maintain —— cassette 的维护操作：迁移 / 裁剪 / 合并 / 统计。
+//
+// 纯计算包，可在全部后端编译。文件读写与目录遍历由调用方（CLI）负责，
+// 因此本包的断言在任何后端都跑同一套。
+import {
+  "moonbitlang/core/string",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/fingerprint",
+}
+
+import {
+  "moonbitlang/core/json",
+  "weopqrst/mooncassette/codec",
+} for "test"

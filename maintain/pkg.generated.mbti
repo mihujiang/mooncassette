@@ -1,0 +1,94 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "weopqrst/mooncassette/maintain"
+
+import {
+  "weopqrst/mooncassette/core",
+}
+
+// Values
+pub fn is_streamed(@core.Interaction) -> Bool
+
+pub fn merge(Array[@core.Cassette], policy? : MergePolicy) -> MergeOutcome
+
+pub fn migrate(@core.Cassette) -> @core.Cassette
+
+pub fn migration_diff(@core.Cassette) -> MigrationDiff
+
+pub fn stats(Array[@core.Cassette]) -> Stats
+
+pub fn trim(@core.Cassette, Keep) -> @core.Cassette
+
+// Errors
+
+// Types and methods
+pub(all) struct Bucket {
+  label : String
+  mut records : Int
+} derive(Eq)
+
+pub(all) enum Keep {
+  All
+  First(Int)
+  Last(Int)
+  Indices(Array[Int])
+  Model(String)
+  Provider(String)
+  Status(Int)
+  Streamed
+  NonStreamed
+} derive(Eq)
+pub fn Keep::describe(Self) -> String
+pub fn Keep::parse(String) -> Result[Self, String]
+
+pub(all) struct MergeOutcome {
+  cassette : @core.Cassette
+  sources : Int
+  kept : Int
+  duplicates : Int
+  conflicts : Int
+} derive(Eq)
+
+pub(all) enum MergePolicy {
+  KeepFirst
+  KeepLast
+  KeepBoth
+} derive(Eq)
+
+pub(all) struct MigrationDiff {
+  from_version : Int
+  to_version : Int
+  from_generator : String
+  to_generator : String
+} derive(Eq)
+pub fn MigrationDiff::is_noop(Self) -> Bool
+
+pub(all) struct ModelStat {
+  model : String
+  mut records : Int
+  mut reported : Int
+  mut unreported : Int
+  mut input_tokens : Int
+  mut output_tokens : Int
+} derive(Eq)
+
+pub(all) struct Stats {
+  cassettes : Int
+  interactions : Int
+  streamed : Int
+  frames : Int
+  failing : Int
+  input_tokens : Int
+  output_tokens : Int
+  versions : Array[Bucket]
+  providers : Array[Bucket]
+  statuses : Array[Bucket]
+  models : Array[ModelStat]
+} derive(Eq)
+pub fn Stats::reported(Self) -> Int
+pub fn Stats::stream_ratio(Self) -> Double
+pub fn Stats::unreported(Self) -> Int
+
+// Type aliases
+
+// Traits
+

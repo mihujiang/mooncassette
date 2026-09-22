@@ -154,6 +154,56 @@ jobs:
             exit 1
           fi
 
+      # ── 维护工具（迁移 / 裁剪 / 合并 / 统计）──────────────────────────────
+      #
+      # 成功条件不是「退出码 0」，而是「产出一个能通过 verify 的新文件」——
+      # 因此每一步都把产物再验一遍。只断言「跑通了」的话，
+      # 一个写出半份文件、却正常退出的实现同样会绿。
+      - name: Maintain — migrate, trim, merge, stats
+        run: |
+          set -e
+          work=$(mktemp -d)
+
+          moon run cmd/main --target js -- migrate examples/demo.cassette.json "$work/migrated.json"
+          moon run cmd/main --target js -- verify "$work/migrated.json"
+
+          moon run cmd/main --target js -- trim examples/demo.cassette.json "$work/trimmed.json" --keep first:1
+          moon run cmd/main --target js -- verify "$work/trimmed.json"
+
+          moon run cmd/main --target js -- merge "$work/merged.json" examples/demo.cassette.json examples/openai_protocol.cassette.json
+          moon run cmd/main --target js -- verify "$work/merged.json"
+
+          moon run cmd/main --target js -- stats examples/demo.cassette.json examples/openai_protocol.cassette.json
+
+      # 迁移**绝不原地覆盖**：来源与目标相同必须失败。
+      #
+      # 这条守的是「绝不静默改写旧文件」。若哪天有人把那个判断删掉，
+      # 上面那条成功路径依然会绿 —— 只有这条会红。
+      - name: Maintain — migrate refuses to overwrite in place
+        run: |
+          set +e
+          moon run cmd/main --target js -- migrate examples/demo.cassette.json examples/demo.cassette.json
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo "expected exit code 1 (in-place migration refused), got $code"
+            exit 1
+          fi
+
+      # 裁剪必须**真的少留**：只断言「verify 通过」的话，一个什么都没做的
+      # `trim` 也会通过 —— 而「悄悄什么也没做」正是这类工具最坏的失败形态。
+      # 示例录制有 2 条，`first:1` 之后应当只剩 1 条。
+      - name: Maintain — trim actually drops records
+        run: |
+          set -e
+          work=$(mktemp -d)
+          moon run cmd/main --target js -- trim examples/demo.cassette.json "$work/trimmed.json" --keep first:1
+          moon run cmd/main --target js -- show "$work/trimmed.json" | tee "$work/show.txt"
+          if ! grep -q "interactions=1" "$work/show.txt"; then
+            echo "::error::trim kept the wrong number of records (expected interactions=1)"
+            exit 1
+          fi
+
       - name: Run the offline demo
         run: moon run examples/offline_demo --target js
 

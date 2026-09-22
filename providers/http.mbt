@@ -194,7 +194,7 @@ pub impl HttpSender for ScriptedHttpSender with fn send(self, request) {
 /// 注意闭包必须是**同步**的。若客户端是异步的（例如 `mizchi/x/http`
 /// 的 `async fn post`），则无法在这里被调用 —— MoonBit 没有从同步上下文
 /// 启动异步任务的入口。这类客户端需要在 async 上下文里完成发送，
-/// 详见 README 的「接入真实 HTTP 客户端」一节。
+/// 详见 README 的「接入你自己的 HTTP 客户端」一节。
 pub struct FunctionSender {
   f : (HttpRequest) -> HttpResponse raise @core.CassetteError
 }

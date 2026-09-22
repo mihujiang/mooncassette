@@ -225,16 +225,100 @@ let response = match session.try_replay(request) {
 
 ---
 
+## 接入你自己的 HTTP 客户端
+
+上一节用的是 `providers` 里现成的协议。如果你的客户端是自己写的，先按它的形态选一条路：
+
+| 你的客户端 | 该实现什么 | 代价 |
+|---|---|---|
+| 同步，报文兼容 OpenAI / Anthropic | `providers.HttpSender` | 最小：只写「发出去」 |
+| 同步，报文是自己的格式 | 再加一个 `providers.Protocol` | 多写 `encode` / `decode` |
+| 异步（`async fn`，如 `mizchi/x/http`） | 不用 trait，见上文「关于异步 HTTP 客户端」 | 自己写录制分支 |
+| 只想把已有流量落成 cassette | `recorder.Transport` 的最小实现 | 需自行遵守规范化 / 脱敏边界 |
+
+### 自定义协议：实现 `Protocol`
+
+协议层与网络无关，可以完全离线测试。三个方法里 `encode` / `decode` 是纯转换：
+
+```moonbit nocheck
+///|
+pub impl @providers.Protocol for MyProtocol with fn name(_self) {
+  "my-vendor"
+}
+
+///|
+pub impl @providers.Protocol for MyProtocol with fn encode(self, request) {
+  @providers.HttpRequest::new(
+    "POST",
+    self.base_url + "/v1/complete",
+    [("content-type", "application/json")],
+    @canon.to_canonical_string(request.body),
+  )
+}
+
+///|
+pub impl @providers.Protocol for MyProtocol with fn decode(_self, response) {
+  // 自己解析报文。`usage` 尽量填 provider 上报的真实值：
+  // 回放、成本与漂移检测都读它；不填仍能回放，但「精确」那一半就没了。
+  @core.Response::new(response.status, @json.parse(response.body))
+}
+```
+
+接线方式与内置协议完全一致：
+
+```moonbit nocheck
+///|
+let transport = @providers.ProviderTransport::new(
+  MyProtocol::new("https://api.my-vendor.com"),
+  @providers.FunctionSender::new(fn(request) { MyClient::call(request) }),
+)
+```
+
+### 接完先自证：`ScriptedHttpSender`
+
+接线错一个字段，录下来的磁带就再也命中不了 —— 而那种失败在录制阶段是**静默**的。
+`ScriptedHttpSender` 把整条链路**离线**跑一遍，让你对「究竟发出了什么」下断言：
+
+```moonbit nocheck
+///|
+test "my protocol sends what I think it sends" {
+  let sender = @providers.ScriptedHttpSender::new()
+  sender.on(
+    @providers.HttpRequest::new(
+      "POST",
+      "https://api.my-vendor.com/v1/complete",
+      [("content-type", "application/json")],
+      expected_body,
+    ),
+    @providers.HttpResponse::new(200, "{\"text\":\"hi\"}"),
+  )
+  let transport = @providers.ProviderTransport::new(
+    MyProtocol::new("https://api.my-vendor.com"),
+    sender,
+  )
+  let response = transport.send(request)
+  assert_eq(response.status, 200)
+  assert_eq(sender.call_count(), 1)
+}
+```
+
+请求对不上时它**不会**静默改道：会返回 500，并在错误体里写出它期望的 key，
+于是断言当场失败，而不是等到某天回放时才暴露。
+
+CI 里回放失败时，用 `explain` 子命令能直接看出差在哪个字段，不必改代码重跑。
+
+---
+
 ## 量化指标
 
 只列**能在仓库里复算**的数字，每项都给出复算方式。
 
 | 指标 | 值 | 复算方式 |
 |---|---|---|
-| 库包 | 12 个（含门面包） | `moon info`，或各目录下的 `pkg.generated.mbti` |
-| 生产代码 | 6,214 行 | 排除 `*_test.mbt` / `*_wbtest.mbt`（含示例与 CLI） |
-| 测试代码 | 4,781 行 | 两类测试文件之和 |
-| 测试 | 296 个，`wasm-gc` 与 `js` 各跑一遍 | `moon test --target wasm-gc` / `--target js` |
+| 库包 | 14 个（含门面包） | `moon info`，或各目录下的 `pkg.generated.mbti` |
+| 生产代码 | 6,506 行 | 排除 `*_test.mbt` / `*_wbtest.mbt`（含示例与 CLI；不含 `demo/`、`llm/`、`async/` 三个独立模块） |
+| 测试代码 | 5,658 行 | 两类测试文件之和（同一口径） |
+| 测试 | 352 个，`wasm-gc` 与 `js` 各跑一遍 | `moon test --target wasm-gc` / `--target js` |
 | 对抗性用例 | 篡改 20 条 + 脱敏 300 组随机结构 + 解析器 600 组随机输入 + 形状 12 条 | `codec/tamper_test.mbt`、`sanitize/leak_test.mbt`、`stream/fuzz_test.mbt`、`codec/shape_test.mbt` |
 | 演示模块 | 5 个视图；12 个白盒测试 + 端到端冒烟 | `demo/` |
 
@@ -368,7 +452,7 @@ test "no behavioural drift since the recording was accepted" {
   "format": "mooncassette",
   "version": 2,
   "meta": {
-    "generator": "mooncassette/0.6.0",
+    "generator": "mooncassette/0.7.0",
     "name": "chat-demo",
     "recorded_at": "2026-09-12T08:00:00Z"
   },
@@ -563,6 +647,10 @@ mooncassette diff    <old.json> <new.json>           # 报告两次录制之间�
 mooncassette cost    <cassette.json> <prices.json>   # 按价目表汇总 token 成本
 mooncassette tokens  <cassette.json>                 # 上报用量与「4 字符 1 token」估算的对照
 mooncassette explain <cassette.json> <request.json>  # 判断请求能否回放，不能则说明差在哪（退出码 1）
+mooncassette migrate <old.json> <new.json>           # 升到当前格式并打印变更摘要（绝不原地覆盖）
+mooncassette trim    <in.json> <out.json> --keep <spec>             # 按策略裁剪记录
+mooncassette merge   <out.json> <in.json> [<in.json> ...] [--policy <p>]  # 合并多份录制，丢弃完全相同的重复
+mooncassette stats   <in.json> [<in.json> ...]       # 汇总多份录制（版本 / 来源 / 状态 / 模型）
 mooncassette help
 ```
 
@@ -596,7 +684,31 @@ policy=Exact  cursor=0  interactions=1
 ```
 
 参数解析刻意**不依赖位置**（不同后端 `@env.args()` 语义不一致），
-而是扫描已知子命令关键字，因此 native 与 js 上行为一致。
+而是扫描已知子命令关键字；带值选项（`--keep` / `--policy`）同样如此，
+因此 native 与 js 上行为一致。
+
+`migrate` / `trim` / `merge` / `stats` 用来**维护**一组录制，三条共同约定：
+
+- **只写新文件，绝不原地覆盖**：`migrate` 在来源与目标相同时直接报错。
+  迁移是要留下痕迹的动作 —— 旧文件还在，新旧两版可以互相对照，出了问题也退得回去。
+- **输出稳定可复现**：分组顺序都是显式排序（条数降序、同数按标签的码点序升），
+  同一组输入在任何后端、任何进程里都打印同样的字节。
+- **只让信息可见，不做猜测**：`stats` 把 `unreported` 单列而不并进 token 总数
+  （「不知道」与「是 0」是两回事）；`trim` 把「原有几条、留下几条」一起打印，
+  让越界的 `index`、不存在的 `model` 造成的少留是**看得见**的，而不是被吞掉。
+
+`--keep` 取 `all` / `first:<n>` / `last:<n>` / `index:<i,j,…>` / `model:<name>` /
+`provider:<name>` / `status:<code>` / `stream` / `non-stream`；`--policy` 取
+`keep-first` / `keep-last` / `keep-both`（默认 `keep-both`，即冲突两条都留）。
+
+一个可以直接复算的例子：
+
+```bash
+moon run cmd/main --target js -- trim examples/demo.cassette.json /tmp/one.json --keep first:1
+# trimmed  : examples/demo.cassette.json -> /tmp/one.json
+# keep     : first:1
+# records  : 2 -> 1
+```
 
 **这些命令目前不单独发布成可安装的二进制**，仓库内用
 `moon run cmd/main --target js -- <子命令>` 运行。若你是在自己的项目里使用本库，
@@ -630,7 +742,7 @@ moon check --target js
 moon fmt && moon info
 ```
 
-当前 **296 个测试全部通过**，覆盖十二个包，且在 `wasm-gc` 与 `js` 两个目标上各跑一遍。
+当前 **352 个测试全部通过**，覆盖十四个包，且在 `wasm-gc` 与 `js` 两个目标上各跑一遍。
 `examples/benchmarks` 另外打印一组**规模指标**（确定性，只取决于数据本身）与一组
 **时间指标**（取决于机器与后端）：把两者分开，是为了避免「CI 机器今天有多忙」变成
 一条会漂移的断言。
@@ -697,11 +809,13 @@ moon fmt && moon info
 | `matcher` | 四种匹配策略与环形查找 | 否 |
 | `sanitize` | 脱敏策略与递归脱敏 | 否 |
 | `codec` | cassette 编解码与完整性校验 | 否 |
+| `payload` | 大载荷信封：编码、base64 归一化、阈值决策 | 否 |
 | `drift` | 两次录制之间的漂移检测 | 否 |
 | `providers` | OpenAI / Anthropic 协议编解码（含流式聚合）、HTTP 执行器抽象 | 否 |
 | `stream` | SSE 帧解析与渲染 | 否 |
 | `cost` | 按价目表做成本核算 | 否 |
 | `recorder` | `Transport` 抽象、会话引擎、`MockTransport` | 否 |
+| `maintain` | 录制维护：格式迁移、裁剪、合并、统计 | 否 |
 | `mooncassette` | 门面：最短上手路径 | 否 |
 
 **全部子包都是纯计算包**，可在 `wasm` / `wasm-gc` / `js` / `native` 后端编译。
@@ -720,6 +834,7 @@ moon fmt && moon info
 | `0.4.0` | 流式响应：SSE 帧解析、OpenAI / Anthropic 增量聚合、以及回放侧的逐帧重放（`Session::replay_stream`）；`cost` 成本核算；CLI 新增 `cost` 与 `explain`。新增 `stream` 与 `cost` 两个包；cassette 格式版本升到 2，读取端兼容 1–2 |
 | `0.5.0` | 「别人能照着用」：CI 接入指南（中英 README 各一节 + 可直接复制的 GitHub Actions 示例）、限流重试示例与脚本化应答序列（`ScriptedReplies`）、基准套件 `examples/benchmarks`（并据此修掉扫描中重复计算指纹的问题：1000 条记录未命中 **18.8 ms → 22 µs**，会话回放 **1.9 ms → 70 µs**）、可视化 Demo（5 个视图 + 截图）、异步适配层（独立模块）、CLI 新增 `tokens`；另修正若干「文档与实现不符」之处（`FingerprintOnly` 被误称为性能逃生通道、`replay_session` 的参数名、SSE 起始行判据） |
 | `0.6.0` | 二进制与多模态载荷：`providers` 按响应体**内容**决定承载方式（JSON / 原文 / 载荷信封），非文本字节不再被有损解码成替换字符；base64 归一化后进指纹，同一份字节的等价写法共用一个指纹；超过阈值的大载荷直接进信封；脱敏视图新增折叠与截断（`fold` / `fold_json`）；新增 `payload` 包 |
+| `0.7.0` | 生态接入与录制维护：`mizchi/llm` 适配层（独立模块 `mooncassette-llm`，把 llm 的估算 token 换成 provider 上报的精确用量）；`maintain` 包与 CLI 四个维护子命令（`migrate` / `trim` / `merge` / `stats`）；README 新增「接入你自己的 HTTP 客户端」一节。异步适配层因工具链未升级，仍顺延 |
 
 ---
 

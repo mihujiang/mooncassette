@@ -1,0 +1,58 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "weopqrst/mooncassette-llm/adapter"
+
+import {
+  "mizchi/llm",
+  "mizchi/llm/tools",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/recorder",
+}
+
+// Values
+pub fn collect_result_of_response(@core.Response) -> @llm.CollectResult
+
+pub fn messages_of_request(@core.Request) -> Array[@llm.Message]
+
+pub fn openai_body(String, Int, String, Array[@llm.Message], Array[@tools.ToolDef]) -> Json
+
+pub fn parse_frame(String) -> @llm.StreamEvent?
+
+pub fn reported_usage(@core.Cassette, @core.Request) -> @core.Usage?
+
+pub fn request_of_messages(String, String, Array[@llm.Message], tools? : Array[@tools.ToolDef], max_tokens? : Int, system_prompt? : String) -> @core.Request
+
+pub fn summarize_frames(Array[@core.StreamFrame]) -> (@llm.FinishReason, @llm.Usage?)
+
+pub fn text_of_frames(Array[@core.StreamFrame]) -> String
+
+pub fn to_core_usage(@llm.Usage) -> @core.Usage
+
+pub fn to_llm_usage(@core.Usage) -> @llm.Usage
+
+pub fn token_drift(Array[@llm.Message], @core.Usage) -> (Int, Int)
+
+// Errors
+
+// Types and methods
+pub(all) struct CassetteProvider {
+  session : @recorder.Session
+  provider : String
+  model : String
+  max_tokens : Int
+  system_prompt : String
+  mut last_usage : @core.Usage?
+  mut last_finish_reason : @llm.FinishReason
+  mut last_estimated_input_tokens : Int
+}
+pub fn CassetteProvider::last_finish_reason(Self) -> @llm.FinishReason
+pub fn CassetteProvider::last_usage(Self) -> @core.Usage?
+pub fn CassetteProvider::model(Self) -> String
+pub fn CassetteProvider::new(@recorder.Session, String, provider? : String, max_tokens? : Int, system_prompt? : String) -> Self
+pub fn CassetteProvider::session(Self) -> @recorder.Session
+pub fn CassetteProvider::token_drift(Self) -> (Int, Int)?
+pub impl @llm.Provider for CassetteProvider
+
+// Type aliases
+
+// Traits
+

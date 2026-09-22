@@ -12,6 +12,7 @@ import {
   "weopqrst/mooncassette/core",
   "weopqrst/mooncassette/cost",
   "weopqrst/mooncassette/drift",
+  "weopqrst/mooncassette/maintain",
   "weopqrst/mooncassette/recorder",
 }
 

@@ -1,0 +1,10 @@
+import {
+  "mizchi/llm",
+  "moonbitlang/core/json",
+  "weopqrst/mooncassette-llm/adapter",
+  "weopqrst/mooncassette/canon",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/recorder",
+}
+
+pkgtype(kind: "executable")

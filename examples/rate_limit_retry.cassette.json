@@ -76,7 +76,7 @@
     }
   ],
   "meta": {
-    "generator": "mooncassette/0.6.0",
+    "generator": "mooncassette/0.7.0",
     "name": "rate-limit-retry",
     "recorded_at": "2026-09-13T12:00:00Z"
   },

@@ -1,0 +1,16 @@
+// mooncassette 的 mizchi/llm 适配层。
+//
+// 本包**只依赖 `mizchi/llm` 的顶层包**，不碰 `mizchi/llm/openai` / `mizchi/llm/ffi`：
+// 那两个子包引出了 `mizchi/x/http` 与 `moonbitlang/async` 的 socket 实现，
+// 而顶层包（`Message` / `ContentBlock` / `Usage` / `Provider`）是纯数据与纯转换，
+// 零网络依赖 —— 这正是适配层能保持离线可测的原因。
+//
+// 顺带一个好处：顶层包对工具链的要求很低（不编译 async 源码），
+// 因此本模块在「异步适配层因工具链过旧而编译不过」的环境里依然可用。
+import {
+  "mizchi/llm",
+  "mizchi/llm/tools",
+  "moonbitlang/core/json",
+  "weopqrst/mooncassette/core",
+  "weopqrst/mooncassette/recorder",
+}

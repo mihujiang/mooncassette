@@ -1,0 +1,79 @@
+{
+  "format": "mooncassette",
+  "interactions": [
+    {
+      "fingerprint": "fnv1a64:b862439f12b14ab1",
+      "integrity": "fnv1a64:5ae605b113f91e60",
+      "request": {
+        "body": {
+          "api_key": "***REDACTED***",
+          "messages": [
+            {
+              "content": "你好，请介绍一下自己",
+              "role": "user"
+            }
+          ]
+        },
+        "model": "gpt-4o",
+        "provider": "openai"
+      },
+      "response": {
+        "body": {
+          "choices": [
+            {
+              "message": {
+                "content": "你好！我是月兔助手。",
+                "role": "assistant"
+              }
+            }
+          ]
+        },
+        "status": 200,
+        "usage": {
+          "input_tokens": 12,
+          "output_tokens": 9
+        }
+      }
+    },
+    {
+      "fingerprint": "fnv1a64:c1f25890c06a6e0a",
+      "integrity": "fnv1a64:f1eac544dd0edc4e",
+      "request": {
+        "body": {
+          "api_key": "***REDACTED***",
+          "messages": [
+            {
+              "content": "第二个问题",
+              "role": "user"
+            }
+          ]
+        },
+        "model": "gpt-4o",
+        "provider": "openai"
+      },
+      "response": {
+        "body": {
+          "choices": [
+            {
+              "message": {
+                "content": "这是第二个回答。",
+                "role": "assistant"
+              }
+            }
+          ]
+        },
+        "status": 200,
+        "usage": {
+          "input_tokens": 8,
+          "output_tokens": 7
+        }
+      }
+    }
+  ],
+  "meta": {
+    "generator": "mooncassette/0.7.0",
+    "name": "offline-demo",
+    "recorded_at": "2026-09-12T08:00:00Z"
+  },
+  "version": 1
+}

@@ -1,6 +1,6 @@
 name = "weopqrst/mooncassette-llm"
 
-version = "0.1.0"
+version = "0.9.0"
 
 readme = "README.md"
 
@@ -23,5 +23,5 @@ description = "mizchi/llm adapter for mooncassette: drive mizchi/llm conversatio
 
 import {
   "mizchi/llm@0.3.2",
-  "weopqrst/mooncassette@0.7.0",
+  "weopqrst/mooncassette@0.9.0",
 }

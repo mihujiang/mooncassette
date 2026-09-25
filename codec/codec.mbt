@@ -7,7 +7,7 @@
 // {
 //   "format": "mooncassette",
 //   "version": 2,
-//   "meta": { "name": "…", "generator": "mooncassette/0.7.0", "recorded_at": "…"? },
+//   "meta": { "name": "…", "generator": "mooncassette/0.9.0", "recorded_at": "…"? },
 //   "interactions": [
 //     {
 //       "fingerprint": "fnv1a64:…",

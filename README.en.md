@@ -472,7 +472,7 @@ and can be reviewed as a diff in code review, which is exactly why canonical key
   "format": "mooncassette",
   "version": 2,
   "meta": {
-    "generator": "mooncassette/0.7.0",
+    "generator": "mooncassette/0.9.0",
     "name": "chat-demo",
     "recorded_at": "2026-09-12T08:00:00Z"
   },
@@ -759,6 +759,42 @@ recompiling**, not to be the only entry point.
 
 ---
 
+## Migration guide (historical versions → current format)
+
+cassette has two format versions since 0.3.0:
+
+| Version | Introduced | Key difference |
+|---|---|---|
+| `1` | 0.3.0 and earlier | non-streamed records only (no `Response.stream`) |
+| `2` | 0.4.0 | introduces `Response.stream` (streamed records); appending a streamed record auto-upgrades the written version to `2` |
+
+The reader is backward compatible with **1..2**, so **most old files keep working with no action**. You only need to migrate when:
+
+- you want to explicitly upgrade an old file to the current version (e.g. to commit a uniformly formatted recording), or
+- you have a hand-written / cross-tool old-format cassette and want to confirm it is semantically unchanged under the new reader.
+
+### One-shot migration via the CLI
+
+```bash
+# writes a new file only; never overwrites the source in place
+moon run cmd/main -- migrate old.cassette.json new.cassette.json
+
+# self-check after migrate: passes iff semantics are unchanged (both digests align)
+moon run cmd/main -- verify new.cassette.json
+```
+
+Rules of `migrate`:
+
+- **never overwrites in place** — source and target being the same file errors out (CI guards this);
+- an old file read in, then appended with a streamed record, is written out at version `2`;
+- `verify` checks both the request-fingerprint digest and the record digest, so any hand-edited file is caught here.
+
+### Cross-version round trip
+
+"old file → new reader → rewrite" loses no information: reading a `version 1` file and rewriting it with the current writer is byte-stable field by field (see the shape matrix in "Testing & verification"). This is exactly one of the assertions in the 0.9.0 red-team re-run.
+
+---
+
 ## Design trade-offs
 
 Listed honestly to prevent misuse:
@@ -866,6 +902,20 @@ the line count but that **every invariant above has a matching assertion**:
 - fingerprint index: stays aligned while recordings are appended, and 50 long-cassette lookups hit
   in order without misalignment;
 - the subset policy agrees with and without an index (it never uses whole-request fingerprints).
+
+---
+
+## Compatibility promise (format freeze)
+
+> Since 0.9.0, the three dimensions below are locked as the format contract: **the reader is backward compatible with every published version; the writer always emits the current value; nothing changes before a major version (1.0)**.
+
+| Dimension | Current | Reader guarantee | Writer guarantee | Change condition |
+|---|---|---|---|---|
+| `cassette_format_version` | `2` | accepts `1..2` (all historical versions decode directly, no migration) | always writes `2` | only 1.0 major |
+| `stream_format_version` | `2` | old files with streamed records decode | auto-upgrades to `2` when streamed records are appended | only 1.0 major |
+| `content_encoding` | `"base64"` envelope | accepts `{"content_encoding":"base64","payload":"<canonical base64>"}` and plain JSON objects | only emits the base64 envelope | when a new encoding is added |
+
+History: `version 1` is the format from 0.3.0 and earlier; `version 2` introduces `Response.stream` (streamed records). The reader reports `UnsupportedVersion` on a higher version instead of silently dropping unknown fields — the latter would make integrity checks fail with a "digest mismatch", hiding the real cause. CI hard-checks that **the reader accepts all historical versions** (invariant 3).
 
 ---
 
